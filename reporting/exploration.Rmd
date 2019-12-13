@@ -1,0 +1,140 @@
+---
+title: "Canopy Exploration"
+author: "Gregor Thomas"
+date: "12/12/2019"
+output:
+  word_document: default
+  html_document: default
+---
+
+This is a working document for exploring the Canopy data. It contains incpomplete thoughts and likely mistakes.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(stats)
+library(ggplot2)
+library(ggthemes)
+library(ggcorrplot)
+library(dplyr)
+library(tidyr)
+library(here)
+library(psych)
+library(cluster)
+library(igraph)
+library(philentropy)
+library(ggdendro)
+library(heatmaply)
+
+theme_set(theme_bw())
+
+load(here("data", "cleaned.rdata"))
+```
+
+TODO a little bit of data checking and summary stats. This will need to be fleshed out more.
+
+```{r, fig.width = 6, fig.height = 4}
+cl_sch = conf_long %>% group_by(school_id) %>%
+  summarize(n_tag = sum(value))
+cl_tag = conf_long %>% group_by(t2) %>%
+  summarize(n_sch = sum(value))
+
+gridExtra::grid.arrange(
+  ggplot(cl_tag, aes(x = n_sch)) + 
+    geom_histogram(binwidth = 4) +
+    labs(x = "Number of schools", y = "Number of tags") +
+    expand_limits(x = 0),
+  ggplot(cl_sch, aes(x = n_tag)) +
+    geom_histogram(binwidth = 3) + 
+    labs(x = "Number of tags", y = "Number of schools"),
+  nrow = 1
+)
+
+```
+
+
+
+## Clustering T2 Tags
+
+Let's look at a heatmap of correlations between the Tier 2 tags. The rows and columns are ordered to cluster similar correlations together, hence the more blue on the left side, and higher correlations on the right.
+
+```{r, warn = FALSE, message = FALSE}
+ggcorrplot(conf_cor, hc.order = T, type = "upper") +
+  scale_fill_distiller(type = "div", limits = c(-1, 1), expand = c(0, 0)) +
+  labs(title = "Correlation heatmap between Tier 2 Tags",
+       fill = "Correlation")
+  theme(axis.text=element_blank())
+```
+
+Looking at the distribution of correlations, we see more-or-less a bell curve, with a mean of 0.18, and one outlier pair, `measures_sel` and `measures_climate`, with an extremely high correlation of 0.87. This appears to be a robust outlier, with `r sum(conf$measures_sel)` schools confirming `measures_sel`, `r sum(conf$measures_climate)` confirmint `measures_climate`, and `r sum(conf$measures_climate & conf$measures_sel)` of those overlapping.
+
+```{r}
+cor_df = conf_cor %>%
+  as.table %>%
+  as.data.frame %>%
+  arrange(desc(Freq)) %>%
+  rename(Correlation = Freq) %>%
+  filter(as.integer(Var1) < as.integer(Var2))
+
+
+ggplot(cor_df, aes(x = Correlation)) +
+  geom_histogram(binwidth = 0.03)
+
+knitr::kable(rbind(
+  head(cor_df),
+  tail(cor_df)
+), caption = "Top 6 and bottom 6 correlated tags")
+```
+
+## Clustering
+
+
+We'll try a few clustering methods to explore the nuances they each give us and make sure our results are robust. First, hierarchical agglomerative clustering, then exploratory factor analysis. We will also look at the data as a network graph with weighted edges, and use community detection (as if it was a social network). 
+
+For now, we'll focus on the confirmed data.
+
+### Hierarchical clustering
+
+```{r, include=FALSE}
+conf_hclust = conf %>% 
+  select(t2$var) %>% 
+  t %>% 
+  dist %>%
+  hclust(method = "ward.D2")
+
+gg_hc = conf_hclust %>% dendro_data(type = "triangle")
+
+hc_labs = gg_hc %>%
+  label %>%
+  left_join(select(t2, var, t1_alt), by = c("label" = "var"))
+```
+
+```{r, fig.height=10, fig.width=7}
+ggplot() +
+  geom_segment(data = segment(gg_hc), aes(x, y, xend = xend, yend = yend)) +
+  geom_text(data = hc_labs, aes(x, y, label = label, color = t1_alt), hjust = 0, size = 4) +
+  coord_flip(clip = "off") +
+  scale_color_tableau(name = "Alternate grouping") +
+  scale_y_reverse(expand = expand_scale(mult = c(0, 0.5), add = c(0, 2))) +
+  theme_dendro() +
+  theme(panel.border = element_blank())
+```
+
+The Ward distance metric seems pretty good - might be worth trying out some others (definitely Jaccard, maybe Manhattan). Euclidean didn't seem as sensible.
+
+### Exploratory Factor Analysis
+
+With EFA, we first need to run diagnostics to select the optimal number of clusters.
+
+```{r, warning = FALSE, message = FALSE}
+fa_pa = fa.parallel(conf_cor, fm = "pa", fa = "fa", n.obs = nrow(conf_cor))
+fa_mr = fa.parallel(conf_cor, fm = "minres", fa = "fa", n.obs = nrow(conf_cor))
+```
+
+The principal axis method and minimum residual methods recommend 4 clusters, but 5 and 6 clusters are also fairly close.
+
+TODO - actual factor analysis.
+
+
+### Community Detection
+
+TODO
