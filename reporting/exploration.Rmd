@@ -1,71 +1,273 @@
 ---
 title: "Canopy Exploration"
 author: "Gregor Thomas"
-date: "12/12/2019"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
   word_document: default
   html_document: default
 ---
 
-This is a working document for exploring the Canopy data. It contains incpomplete thoughts and likely mistakes.
+This is a working document for exploring the Canopy data and is intendend to provide directional information and to guide ongoing discussions, including whether this is the direction the client would like us to further pursue. 
+
+*The information below is a draft and will be continued to be reviewd and revised.*
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE)
 library(stats)
+library(here)
+
+library(flextable)
+
 library(ggplot2)
 library(ggthemes)
-library(ggcorrplot)
+
 library(dplyr)
 library(tidyr)
-library(here)
+
+library(ggcorrplot)
 library(psych)
 library(cluster)
 library(igraph)
 library(philentropy)
 library(ggdendro)
 library(heatmaply)
+library(parameters)
+
+library(readr)
 
 theme_set(theme_bw())
 
 load(here("data", "cleaned.rdata"))
 ```
 
-TODO a little bit of data checking and summary stats. This will need to be fleshed out more.
+# Descriptives
 
-```{r, fig.width = 6, fig.height = 4}
+```{r}
 cl_sch = conf_long %>% group_by(school_id) %>%
   summarize(n_tag = sum(value))
+
+# Plotting this was dumb... confusing histogram.
 cl_tag = conf_long %>% group_by(t2) %>%
   summarize(n_sch = sum(value))
 
-gridExtra::grid.arrange(
-  ggplot(cl_tag, aes(x = n_sch)) + 
-    geom_histogram(binwidth = 4) +
-    labs(x = "Number of schools", y = "Number of tags") +
-    expand_limits(x = 0),
+
+sch_sum = summary(cl_sch$n_tag)
+```
+
+In the confirmation data, there are `r nrow(cl_tag)` tier 2 (T2) tags and responses from `r nrow(cl_sch)` schools.
+The graph below shows the distribution of the number of confirmed T2 tags per school. There are a handful (3) schools with no confirmed tags, and one school each with 69 and 70 tags (Avalon School and Meadows Valley School PK-12, respectively); 50% of schools have between `r sch_sum["1st Qu."]` and `r sch_sum["3rd Qu."]` tags, with the median school having `r sch_sum["Median"]` tags.
+
+
+```{r, fig.width = 6, fig.height = 2.5}
+
+# gridExtra::grid.arrange(
+#   ggplot(cl_tag, aes(x = n_sch)) + 
+#     geom_histogram(binwidth = 4) +
+#     labs(x = "Number of schools", y = "Number of tags") +
+#     expand_limits(x = 0),
   ggplot(cl_sch, aes(x = n_tag)) +
-    geom_histogram(binwidth = 3) + 
-    labs(x = "Number of tags", y = "Number of schools"),
-  nrow = 1
-)
+    geom_histogram(binwidth = 1) + 
+    labs(x = "Confirmed T2 tags per school", y = "Number of schools") +
+    scale_y_continuous(breaks = seq(0, 8, by = 2)) +
+    scale_x_continuous(breaks = function(x) {seq(0, max(x) + 9, by = 10)}) #,
+#   nrow = 1
+# )
+```
+
+
+# Nomination vs Confirmation Divergence
+
+```{r, include = FALSE}
+nom_conf[nom_conf$school_id == 130, "nom_approach"] = "T1_only"
+nom_conf = filter(nom_conf, !(school_id == 130 & tier == "T2"))
+
+nom_conf_overall = nom_conf %>%
+  group_by(tier) %>%
+  summarize(
+    accuracy = mean(nom == conf),
+    precision = sum(conf == 1 & nom == 1) / sum(nom == 1),
+    sensitivity = sum(conf == 1 & nom == 1) / sum(conf == 1),
+    n_nom_confirmed = sum(conf == 1 & nom == 1),
+    n_tag_added = sum(conf == 1 & nom == 0),
+    n_tag_removed = sum(conf == 0 & nom == 1)
+  ) 
+
+school_acc = nom_conf %>%
+  group_by(school_id) %>%
+  summarize(accuracy = mean(nom == conf), 
+            n_t1_conf = sum(tier == "T1" & conf),
+            n_t2_conf = sum(tier == "T2" & conf),
+            precision = mean(conf == 1 / (conf == 1))) %>%
+  arrange((accuracy), desc(n_t1_conf), desc(n_t2_conf))
+
+mean(school_acc$accuracy == 1)
+
+
+school_acc_t1 = nom_conf %>%
+  filter(tier == "T1") %>%
+  group_by(school_id) %>%
+  summarize(accuracy = mean(nom == conf), 
+            n_t1_conf = sum(tier == "T1" & conf)) %>%
+  arrange((accuracy), desc(n_t1_conf))
+
+mean(school_acc_t1$accuracy)
+
+# most added and removed tags
+nom_conf_added = nom_conf %>%
+  group_by(tier, tag) %>%
+  summarize(n_nom_confirmed = sum(nom == 1 & conf == 1),
+            n_tag_added = sum(nom == 0 & conf == 1),
+            n_tag_removed = sum(nom == 1 & conf == 0)) %>%
+  group_by(tier) %>%
+  arrange(tier, desc(n_tag_added), desc(n_nom_confirmed)) 
+
+nom_conf = mutate(nom_conf, decision = case_when(
+  nom & conf ~ "confirmed",
+  nom & ! conf ~ "removed",
+  !nom & conf ~ "added",
+  TRUE ~ NA_character_
+))
+
+decision_cols = wesanderson::wes_palette("Moonrise3", n = 3)
+names(decision_cols) = c("confirmed", "removed", "added")
+
+div_t1 = nom_conf %>% filter(nom_approach == "T1_only") %>%
+  group_by(school_id) %>%
+  mutate(sch_tags = sum(decision %in% c("confirmed", "added"), na.rm = TRUE),
+         sch_added = sum(decision == "added", na.rm = TRUE)) %>%
+  ungroup() %>%
+  arrange(desc(sch_tags), desc(sch_added), school_id) %>%
+  mutate(school_id = factor(school_id, levels = unique(school_id)))
+
+gg_t1_nom_conf = 
+  ggplot(div_t1, aes(y = tag, x = factor(school_id), fill = decision)) +
+    geom_tile() +
+    theme(axis.text.x = element_blank(), legend.position = "bottom") +
+  guides(fill = guide_legend(label.position = "bottom")) +
+  labs(x = "School", title = "T1 Tag Divergence", y = "", fill = "Tag Action") +
+  scale_fill_manual(values = decision_cols, na.value = "white", ) +
+  coord_fixed(ratio = 1.5)
+
+
+div_t2 = 
+  nom_conf %>% filter(nom_approach != "T1_only") %>%
+  group_by(school_id) %>%
+  mutate(sch_tags = sum(decision %in% c("confirmed", "added"), na.rm = TRUE),
+         sch_added = sum(decision == "added", na.rm = TRUE)) %>%
+  ungroup() %>%
+  arrange(desc(sch_tags), desc(sch_added), school_id) %>%
+  mutate(school_id = factor(school_id, levels = unique(school_id)))
+
+gg_t2_nom_conf = 
+    ggplot(div_t2, aes(y = tag, x = school_id, fill = decision)) +
+    geom_tile() +
+  #  scale_fill_manual()
+    theme(axis.text.x = element_blank()) +
+  labs(x = "School", title = "T2 Tag Divergence", y = "", fill = "Tag Action") +
+  scale_fill_manual(values = decision_cols, na.value = "white") +
+  coord_equal()
 
 ```
 
 
+The tag confirmations do not diverge far from the nominations. Schools much more frequently *confirmed tags for which they were not nominated* than *disconfirmed tags for which they were nominated*.  Detailed metrics follow. Overall, the agreement between nominations and confirmations are very high.
 
-## Clustering T2 Tags
+In this section (and throughout this analysis, so far) we use de-duplicated nominations. That is, if multiple nominators suggested the same tag for a school, it is counted as a single nomination. This keeps the scale of the analysis at the tag-school level, without introducing complexity of considering nominators as well. Additional analysis could be done including the individual nominator data (`r sum(grepl(",", nom_only$nominator_id))` schools were nominated by multiple individual), to see if duplicated nominations are more likely to be confirmed, to assess the "accuracy" of individual nominators, etc.
 
-Let's look at a heatmap of correlations between the Tier 2 tags. The rows and columns are ordered to cluster similar correlations together, hence the more blue on the left side, and higher correlations on the right.
+Considering all tags (tiers 1 and 2), the overall agreement between nomination and confirmation was `r scales::percent(mean(nom_conf$nom == nom_conf$conf))`. By school, `r scales::percent(mean(school_acc$accuracy == 1))` did not make any changes to their nominations. One school, Minnesota New Country School, was nominated for 64 T2 tags, but did not confirm (or add) any T2 tags, so we are ignoring it's T2 confirmation data.
 
-```{r, warn = FALSE, message = FALSE}
+In the confirmation process, schools were much more likely to add tags they were not nominated for than to remove tags they were nominated for. Several summary statistics are provided in the table below, broken out by tag tier. Graphical illustrations follow.
+
+
+```{r}
+flextable(nom_conf_overall) %>%
+  autofit()
+```
+
+The technical terms in the table are borrowed from data science. *Accuracy* is the proportion of matches between nomination and confirmation (both nominated and confirmed or neither nominated nor confirmed count as matches). *Precision* (aka *positive predictive value*) is the proportion of (positive) nominations that were confirmed. *Sensitivity* is the proportion of (positive) confirmations that were nominated. Then we have three counts: *n nom confirmed* is the number of tag nomination that were confirmed, *n tag added* is the number of tags schools confirmed that were not nominated, and *n tag removed* is the paltry number of nominations that schools did not confirm. 
+
+The high precision values, especially high for Tier 1 tags, is a proportional way to measure how small the number of disconfirmed tags are relative to confirmed tags. Sensitivity is similar, but for added tags rather than removed tags.
+
+
+```{r, fig.width = 7, fig.height = 3.5}
+gg_t1_nom_conf
+```
+
+
+```{r, fig.width = 7, fig.height = 10}
+gg_t2_nom_conf
+```
+
+Individual tag statistics are in the tables below. All Tier 1 tags are presented and the top and bottom most added Tier 2 tags.
+
+```{r}
+nom_conf_added %>%
+  filter(tier == "T1") %>%
+  flextable() %>%
+  autofit()
+```
+
+Most and least added Tier 2 tags:
+
+```{r}
+nom_conf_added %>%
+  filter(tier == "T2") %>%
+  slice(1:5, (n() - 4):n()) %>%
+  flextable() %>%
+  autofit()
+```
+
+```{r t2_tags_by_apporach}
+t2_by_nom = conf_long %>%
+  group_by(school_id) %>%
+  summarize(n_t2 = sum(value)) %>%
+  left_join(distinct(nom_conf, school_id, nom_approach), by = "school_id") 
+
+t2_by_nom_summary = t2_by_nom %>%
+  group_by(nom_approach) %>%
+  summarize(`Average Number of T2 Tags` = mean(n_t2)) 
+```
+
+With this apparent reluctance of schools administrators to disconfirm tags for which they were nominated, it seems natural to ask if schools that were nominated for tier 2 tags ended up confirming more tags, on average, than those that were not nominated at the tier 2 level. As it turns out, this was not the case. Schools that were only nominated at the Tier 1 level selected, on average, `r t2_by_nom_summary[1, 2]` Tier 2 tags, while schools nominated at the Tier 2 level selected `r t2_by_nom_summary[2, 2]` Tier 2 tags.
+
+```{r}
+ggplot(t2_by_nom, aes(x = n_t2, fill = nom_approach)) +
+  geom_histogram(binwidth = 1) +
+  facet_grid(nom_approach ~ . , scales = "free_y") +
+  labs(
+    x = "Number of confirmed Tier 2 tags",
+    y = "Number of schools",
+    fill = "Nomination\napproach",
+    title = "",
+    subtitle = "Schools nominated for Tier 2 tags\nconfirmed slightly fewer Tier 2 tags, on average"
+  )
+
+ggplot(t2_by_nom, aes(x = nom_approach, y = n_t2, fill = nom_approach)) +
+  geom_boxplot() +
+  labs(
+    x = "Nomination approach",
+    y = "Number of confirmed Tier 2 tags",
+    fill = "Nomination\napproach",
+    title = "",
+    subtitle = "Schools nominated for Tier 2 tags\nconfirmed slightly fewer Tier 2 tags, on average"
+  )
+```
+
+
+
+# Clustering
+
+To understand the relationship between Tier 2 tags, we begin by looking at a heat map of correlations. The rows and columns are ordered to cluster similar correlations together, hence the more blue on the left side, and higher correlations on the right.
+
+```{r, warn = FALSE, message = FALSE, fig.width=6.5, fig.height=5.5}
 ggcorrplot(conf_cor, hc.order = T, type = "upper") +
   scale_fill_distiller(type = "div", limits = c(-1, 1), expand = c(0, 0)) +
-  labs(title = "Correlation heatmap between Tier 2 Tags",
-       fill = "Correlation")
+  labs(title = "Correlation heat map between Tier 2 Tags",
+       fill = "Correlation") +
   theme(axis.text=element_blank())
 ```
 
-Looking at the distribution of correlations, we see more-or-less a bell curve, with a mean of 0.18, and one outlier pair, `measures_sel` and `measures_climate`, with an extremely high correlation of 0.87. This appears to be a robust outlier, with `r sum(conf$measures_sel)` schools confirming `measures_sel`, `r sum(conf$measures_climate)` confirmint `measures_climate`, and `r sum(conf$measures_climate & conf$measures_sel)` of those overlapping.
+Looking at the distribution of correlations, we see more-or-less a bell curve, with a mean of 0.18, and one outlier pair, `measures_sel` and `measures_climate`, with an extremely high correlation of 0.87. This is a robust outlier, with `r sum(conf$measures_sel)` schools confirming `measures_sel`, `r sum(conf$measures_climate)` confirming `measures_climate`, and `r sum(conf$measures_climate & conf$measures_sel)` of those overlapping.
 
 ```{r}
 cor_df = conf_cor %>%
@@ -78,15 +280,21 @@ cor_df = conf_cor %>%
 
 ggplot(cor_df, aes(x = Correlation)) +
   geom_histogram(binwidth = 0.03)
-
-knitr::kable(rbind(
-  head(cor_df),
-  tail(cor_df)
-), caption = "Top 6 and bottom 6 correlated tags")
 ```
 
-## Clustering
+The table below shows the most and least correlated tags (top and bottom 6).
 
+```{r}
+flextable(rbind(
+  head(cor_df),
+  tail(cor_df)
+)) %>% 
+#  hline(i = 6) %>%
+#  set_caption("Top 6 and bottom 6 correlated tags") %>% # flextable captions are HTML only
+  autofit
+```
+
+# Clustering Methods
 
 We'll try a few clustering methods to explore the nuances they each give us and make sure our results are robust. First, hierarchical agglomerative clustering, then exploratory factor analysis. We will also look at the data as a network graph with weighted edges, and use community detection (as if it was a social network). 
 
@@ -106,6 +314,9 @@ gg_hc = conf_hclust %>% dendro_data(type = "triangle")
 hc_labs = gg_hc %>%
   label %>%
   left_join(select(t2, var, t1_alt), by = c("label" = "var"))
+
+# The Ward distance metric seems pretty good - might be worth trying out some others (definitely Jaccard, maybe Manhattan). Euclidean didn't seem as sensible.
+
 ```
 
 ```{r, fig.height=10, fig.width=7}
@@ -119,22 +330,69 @@ ggplot() +
   theme(panel.border = element_blank())
 ```
 
-The Ward distance metric seems pretty good - might be worth trying out some others (definitely Jaccard, maybe Manhattan). Euclidean didn't seem as sensible.
 
-### Exploratory Factor Analysis
+## Exploratory Factor Analysis
 
 With EFA, we first need to run diagnostics to select the optimal number of clusters.
 
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE, include = FALSE}
 fa_pa = fa.parallel(conf_cor, fm = "pa", fa = "fa", n.obs = nrow(conf_cor))
 fa_mr = fa.parallel(conf_cor, fm = "minres", fa = "fa", n.obs = nrow(conf_cor))
 ```
 
-The principal axis method and minimum residual methods recommend 4 clusters, but 5 and 6 clusters are also fairly close.
+The principal axis method and minimum residual methods recommend 4 clusters, but 5 and 6 clusters are also fairly close. We'll start with 5 clusters and explore more as needed.
 
-TODO - actual factor analysis.
+```{r, include = FALSE}
+efa4 = fa(conf_cor, nfactors = 4, rotate = "oblimin", fm = "minres")
+print(efa4$loadings, cutoff = 0.3)
+fa.diagram(efa4)
+
+efa5 = fa(conf_cor, nfactors = 5, rotate = "oblimin", fm = "minres")
+print(efa5, sort = T)
+print(efa5$loadings, cutoff = 0.27)
+fa.diagram(efa5)
+
+efa6 = fa(conf_cor, nfactors = 6, rotate = "oblimin", fm = "minres")
+print(efa6$loadings, cutoff = 0.3)
+fa.diagram(efa6)
+
+efa5_mc = fa(conf_cor, nfactors = 5, rotate = "oblimin", fm = "minchi", np.obs = 173)
+efa5_pa = fa(conf_cor, nfactors = 5, rotate = "oblimin", fm = "pa", n.obs = 173)
+efa5_mle = fa(conf_cor, nfactors = 5, rotate = "oblimin", fm = "mle", n.obs = 173)
+# seems robust to method, stick with minres
+
+if(!file.exists(here("reporting", "EFA Results.txt"))) {
+  efa5 %>%
+    model_parameters(sort = TRUE, threshold = "max") %>%
+    write_tsv(here("reporting", "EFA Results Max.txt"), na = "")
+  
+  efa5 %>%
+    model_parameters(sort = TRUE, threshold = 0.29) %>%
+    write_tsv(here("reporting", "EFA Results Thresh.txt"), na = "")
+  
+  efa5 %>%
+    model_parameters(sort = TRUE) %>%
+    write_tsv(here("reporting", "EFA Results All.txt"), na = "")
+
+  efa6 %>%
+    model_parameters(sort = TRUE, threshold = "max") %>%
+    write_tsv(here("reporting", "EFA6 Results Max.txt"), na = "")
+  
+  efa6 %>%
+    model_parameters(sort = TRUE, threshold = 0.29) %>%
+    write_tsv(here("reporting", "EFA6 Results Thresh.txt"), na = "")
+  
+  efa6 %>%
+    model_parameters(sort = TRUE) %>%
+    write_tsv(here("reporting", "EFA6 Results All.txt"), na = "")
+  
+
+}
+```
 
 
-### Community Detection
+## Next steps
+```{r}
+# promising: FactoMineR::CA , MFA  , HCPC
+```
 
-TODO
