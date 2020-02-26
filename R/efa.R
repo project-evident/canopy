@@ -70,7 +70,61 @@ if(!file.exists(here("reporting", "EFA Results.txt"))) {
     write_tsv(here("reporting", "EFA6 Results All.txt"), na = "")
 }
 
+## From Chelsea
+# 5-cluster names:
+# - Social-Emotional Learning & Equity
+# - Project-based Learning
+# - Flexible Pathways to College & Career
+# - Assessment & Student Success
+# - Blended Learning
+# 
+# 6-cluster names:
+# - Equity
+# - PBL
+# - Flexible Pathways to College & Career
+# - Assessment & Student Success
+# - Blended Learning
+# - General Approaches
 
 
+efa5_key = c(
+  "MR3" = "Social-Emotional Learning & Equity",
+  "MR1" = "Project-Based Learning",
+  "MR5" = "Flexible Pathways to College & Career",
+  "MR4" = "Assessment & Student Success",
+  "MR2" = "Blended Learning"
+)
+
+efa6_key = c(
+  "MR3" = "Equity",
+  "MR1" = "Project-Based Learning",
+  "MR5" = "Flexible Pathways to College & Career",
+  "MR4" = "Assessment & Student Success",
+  "MR2" = "Blended Learning",
+  "MR6" = "General Approaches"
+)
+
+
+e5 = all_efa_5 %>%
+  model_parameters(sort = TRUE, threshold = "max") %>%
+   select(Variable, starts_with("MR"))
+
+e5$Cluster = names(e5[-1])[apply(e5[-1], 1, function(x) which(!is.na(x)))]
+e5 = as.data.frame(e5) %>%
+  mutate(Cluster = efa5_key[Cluster]) %>%
+  select(tag = Variable, clust_5 = Cluster)
+
+e6 = all_efa_6 %>%
+  model_parameters(sort = TRUE, threshold = "max") %>%
+   select(Variable, starts_with("MR"))
+
+e6$Cluster = names(e6[-1])[apply(e6[-1], 1, function(x) which(!is.na(x)))]
+e6 = as.data.frame(e6) %>%
+  mutate(Cluster = efa6_key[Cluster]) %>%
+  select(tag = Variable, clust_6 = Cluster)
+
+e56 = left_join(e5, e6, by = "tag")
+
+write_tsv(e56, here("reporting/clusters.tsv"))
 
 

@@ -3,7 +3,7 @@ title: "Canopy Exploration"
 author: "Gregor Thomas"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
-  word_document: default
+  word_document: defaut
   html_document: default
 ---
 
@@ -395,4 +395,5 @@ if(!file.exists(here("reporting", "EFA Results.txt"))) {
 ```{r}
 # promising: FactoMineR::CA , MFA  , HCPC
 ```
+
 
