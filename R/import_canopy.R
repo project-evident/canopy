@@ -88,7 +88,7 @@ conf_cor = conf %>%
 all_wide = conf %>% 
   select(t2$tag, t1$tag)
 all_cor = cor(all_wide)
-  
+
 
 write.table(conf_cor, here("data", "t2corr.txt"))
 
