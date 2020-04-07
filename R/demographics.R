@@ -17,6 +17,7 @@ library(philentropy)
 library(ggdendro)
 library(heatmaply)
 library(parameters)
+library(glmnet)
 
 library(readr)
 
@@ -45,6 +46,28 @@ dem_cols = c(
   "locale_suburban",
   "locale_rural"
 )
+
+dem_labs = dem_cols
+names(dem_labs) = c(
+  "# Black students",
+  "% Black students",
+  "% students of color",
+  "# FRPL eligible",
+  "% FRPL eligible",
+  "% English Language Learner",
+  "% special education",
+  "Charter schools",
+  "Elementary schools",
+  "Middle schools",
+  "High schools",
+  "Urban schools",
+  "Suburban schools",
+  "Rural schools"
+)
+
+dem_labs_rv = names(dem_labs)
+names(dem_labs_rv) = dem_labs
+
 # with 145 / 156 schools being "regular school" instead of Alternative, Career and Tech, Private, will ignore the
 # school_type
 
@@ -69,6 +92,7 @@ charter_dat %>%
   summarize(diff = mean(diff)) %>%
   ggplot(aes(x = diff)) +
   scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1))) +
   geom_vline(xintercept = 0, color = "gray70", size = 1) +
   geom_histogram(fill = cc_cols["green"], binwidth = 0.01) +
   labs(title = "Distribution of differences in tags between\ncharter and traditional schools",
@@ -95,7 +119,7 @@ charter_dat %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = charter)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)]), labels = c("Yes" = "Charter", "No" = "Traditional")) +
-  scale_y_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
   geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags with largest differential between\ncharter and non-charter schools\n(top 15% differences)",
        x = "Tag", 
@@ -112,7 +136,7 @@ charter_dat %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = charter)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)]), labels = c("Yes" = "Charter", "No" = "Traditional")) +
-  scale_y_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
   geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags with smallest differential between\ncharter and non-charter schools\n(bottom 15% differences)",
        x = "Tag", 
@@ -130,7 +154,7 @@ charter_dat %>%
   ggplot(aes(x = tag, y = n_students_served, fill = charter)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)]), labels = c("Yes" = "Charter", "No" = "Traditional")) +
-  scale_y_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::comma_format(), expand = expand_scale(mult = c(0, 0.1))) +
   #geom_text(aes(label = n_schools_with_tag, group = charter), y = 0, position = position_dodge(width = 1), vjust = 0) +
   geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Even when more charter schools have tags\ntraditional schools serve many more students",
@@ -174,6 +198,7 @@ locale_dat %>%
   summarize(sd = mean(sd)) %>%
   ggplot(aes(x = sd)) +
   geom_histogram(fill = cc_cols["green"], binwidth = 0.01) +
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1))) +
   labs(title = "Distribution of differences in tags between locales",
        y = "Count of tags with each difference",
        x = "Percentage points difference\n(% charter with tag minus % traditional with tag") +
@@ -188,7 +213,7 @@ locale_dat %>%
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 2, 3)])#, labels = c("Yes" = "Charter", "No" = "Traditional")
                     ) +
-  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1), expand = expand_scale(mult = c(0, 0.1))) +
   geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags with largest std deviation between locales\n(highest 15% std deviations)",
        x = "Tag", 
@@ -205,7 +230,7 @@ locale_dat %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1,2, 3)])) +
-  scale_y_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
   geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags with smallest std deviation\n(lowest 15% std deviations)",
        x = "Tag", 
@@ -235,12 +260,12 @@ suburb_dat %>%
   summarize(diff = mean(diff)) %>%
   ggplot(aes(x = diff)) +
   scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
-  geom_vline(xintercept = 0, color = "gray70", size = 1) +
+  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1))) +
   geom_histogram(fill = cc_cols["green"], binwidth = 0.01) +
   labs(title = "Distribution of differences in tags between\nurban and suburban schools",
        y = "Count of tags with each difference",
        x = "Percentage points difference\n(% urban with tag minus % suburban with tag") +
-  
+  geom_vline(xintercept = 0, color = "gray30", size = 1) +  
   theme(panel.grid.major.x = element_blank()) +
   annotate(geom = "text", y = c(5, 5), x = c(-.2, .2),
            label = c("More common\nin suburban", "More common\nin urban"),
@@ -250,13 +275,12 @@ ggsave("graphs/urban_suburban_diff_hist.png", width = fig_width)
 
 
 suburb_dat %>%
-  #slice(1:24) %>%
   filter(diff >= quantile(diff, 0.85)) %>%
   mutate(tag = fct_reorder(tag, -diff)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)])) +
-  scale_y_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
   geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags more common in urban than\nsuburban schools (top 15%)",
        x = "Tag", 
@@ -273,7 +297,7 @@ suburb_dat %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)])) +
-  scale_y_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
   geom_text(aes(label = scales::percent(-diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags more common in suburban\n than urban school (top 15%)",
        x = "Tag", 
@@ -291,7 +315,7 @@ charter_dat %>%
   ggplot(aes(x = tag, y = n_students_served, fill = charter)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)]), labels = c("Yes" = "Charter", "No" = "Traditional")) +
-  scale_y_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::comma_format(), expand = expand_scale(mult = c(0, 0.1))) +
   #geom_text(aes(label = n_schools_with_tag, group = charter), y = 0, position = position_dodge(width = 1), vjust = 0) +
   geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Even when more charter schools have tags\ntraditional schools serve many more students",
@@ -334,15 +358,15 @@ library(purrr)
 logistic_results = list()
 for (col in c("black_count", "black_percent", "non_white_percent", "FRPL_count", "FRPL_percent",
               "LEP_percent", "IDEA_percent")) {
-logistic_results[[col]] = 
-  tagdem %>%
-  group_by(tag) %>%
-  mutate_at(vars(col), scale) %>%
-  group_map(
-    ~ broom::tidy(glm(as.formula(paste("value ~", col)), data = .x, family = binomial))[2, ] %>%
-      cbind(.y)
-  ) %>%
-  bind_rows
+  logistic_results[[col]] = 
+    tagdem %>%
+    group_by(tag) %>%
+    mutate_at(vars(col), scale) %>%
+    group_map(
+      ~ broom::tidy(glm(as.formula(paste("value ~", col)), data = .x, family = binomial))[2, ] %>%
+        cbind(.y)
+    ) %>%
+    bind_rows
 }
 
 logistic_all = bind_rows(logistic_results)
@@ -453,14 +477,14 @@ logistic_one_coef %>%
 ## Clusters ####
 e56 = read_tsv(here("reporting/clusters.tsv"))
 
-plot_cluster_cor = function(
+make_cluster_cor = function(
   clust_dat = e56,
   tagdem = tagdem,
   dems = dems,
   clust_col = "clust_5",
-  dem_cols = dem_cols
+  dem_cols = dem_cols,
+  dem_labs = dem_labs
 ) {
-  
   clust_dat = clust_dat[c("tag", clust_col)]
   names(clust_dat)[2] = "Cluster"
   clust_tagdem = tagdem %>% 
@@ -474,7 +498,7 @@ plot_cluster_cor = function(
   n_clust = length(clust_names)
   
   clust_cors = clustdem %>%
-    select(clust_names, dem_cols) %>%
+    select(all_of(clust_names), all_of(dem_cols)) %>%
     mutate(charter = ifelse(charter == "Yes", 1, 0)) %>%
     cor(use = "pairwise.complete.obs")
   
@@ -490,29 +514,80 @@ plot_cluster_cor = function(
   if("General Approaches" %in% clust_names) {
     clust_cor_long$Cluster = relevel(clust_cor_long$Cluster, ref = "General Approaches")
   }
-  
+  clust_cor_long$Demographic = dem_labs_rv[clust_cor_long$Demographic]
+  clust_cor_long$Demographic = factor(clust_cor_long$Demographic, levels = dem_labs_rv)
+  clust_cor_long  
+}
+
+plot_cluster_cor = function(
+  clust_cor_long
+  ) {
+  n_clust = length(unique(clust_cor_long$Cluster))
   clust_plot = ggplot(clust_cor_long, aes(x = Demographic, y = Cluster, fill = Correlation)) +
     geom_tile() +
-    geom_text(aes(label = round(Correlation, 2)), color = "gray60", size = 3) +
-    scale_fill_distiller(type = "div", limits = c(-1, 1), expand = c(0, 0)) +
-    labs(title = sprintf("Correlation between demographics\nand tag clusters (%s clusters)", n_clust),
+    geom_text(aes(label = round(Correlation, 2)), color = "gray20", size = 3) +
+    scale_fill_gradient2(
+      limits = c(-1, 1),
+      expand = c(0, 0), 
+      low = cc_cols["dark blue"], 
+      mid = "white",
+      high = cc_cols["green"],
+      midpoint = 0
+    ) +
+    scale_x_discrete() + 
+    labs(title = sprintf("Correlation between practice clusters\nand school demographics", n_clust),
          x = "Demographic/School Characteristic",
          fill = "Correlation") +
     coord_equal() +
+    theme_few(base_family = "GillSans-Light") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-          panel.grid = element_blank())
+          panel.grid = element_blank(),
+          plot.title.position = "plot"
+          )
   
   return(clust_plot)
 }
 
-clust_5_plot = plot_cluster_cor(
+
+clust_5_order = c(
+  "Blended Learning",
+  "Project-Based Learning",
+  "Competency-Based Education",
+  "Equity & Social-Emotional Learning",
+  "Flexible Pathways to College & Career"
+)
+
+clust_5_cor_long = make_cluster_cor(
   clust_col = "clust_5",
   tagdem = tagdem,
   dems = dems,
   dem_cols = dem_cols
-)
-
+) %>%
+  mutate(Cluster = factor(Cluster, levels = rev(clust_5_order)))
+clust_5_plot = plot_cluster_cor(clust_5_cor_long)
+#clust_5_plot
 ggsave(here("graphs/Clusters (5) and Demographics.png"), clust_5_plot, width = fig_width + 3)
+
+
+
+clust_5_blog1 = 
+  clust_5_cor_long %>%
+  filter(Demographic %in% c("Elementary schools", "Middle schools", "High schools")) %>%
+  plot_cluster_cor() +
+    labs(x = "", title = "Correlation between cluster and level") +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
+        panel.grid.major = element_blank(),
+        axis.line = element_blank()) 
+
+
+clust_5_blog1
+ggsave(here("graphs/Blog 1_Clusters Level correlation.png"), clust_5_blog1, width = fig_width - 1.5)
+# ggsave(here("graphs/Blog 1_Clusters Level correlation.pdf"), clust_5_blog1, width = fig_width - 1.5)
+# embed_fonts("graphs/Blog 1_Clusters Level correlation.pdf")
+# spaces lost?
+ggsave(here("graphs/Blog 1_Clusters Level correlation.svg"), clust_5_blog1, width = fig_width - 1.5)
+
+
 
 clust_6_plot = plot_cluster_cor(
   clust_col = "clust_6",

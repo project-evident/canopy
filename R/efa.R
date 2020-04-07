@@ -88,10 +88,10 @@ if(!file.exists(here("reporting", "EFA Results.txt"))) {
 
 
 efa5_key = c(
-  "MR3" = "Social-Emotional Learning & Equity",
+  "MR3" = "Equity & Social-Emotional Learning",
   "MR1" = "Project-Based Learning",
   "MR5" = "Flexible Pathways to College & Career",
-  "MR4" = "Assessment & Student Success",
+  "MR4" = "Competency-Based Education",
   "MR2" = "Blended Learning"
 )
 
