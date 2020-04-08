@@ -102,7 +102,7 @@ charter_dat %>%
   theme(panel.grid.major.x = element_blank()) +
   annotate(geom = "text", y = c(5, 5), x = c(-.15, .15),
            label = c("More common\nin traditional", "More common\nin charter"),
-           color = "gray30", family = "GillSans-Light") 
+           color = "gray30", family = "Lato Light") 
 
 ggsave("graphs/charter_diff_hist.png", width = fig_width)
 
@@ -125,7 +125,7 @@ charter_dat %>%
        x = "Tag", 
        y = "Percent of charter/non-charter schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank())
 ggsave("graphs/charter_largest_diff_tags.png", width = fig_width)
 
@@ -142,7 +142,7 @@ charter_dat %>%
        x = "Tag", 
        y = "Percent of charter/non-charter schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank()) 
 ggsave("graphs/charter_smallest_diff_tags.png", width = fig_width)
 
@@ -161,7 +161,7 @@ charter_dat %>%
        x = "Tag", 
        y = "Number of students served by school type",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank())  
 ggsave("graphs/charter_largest_diff_tags_n.png", width = fig_width)
 
@@ -211,17 +211,17 @@ locale_dat %>%
   mutate(tag = fct_reorder(tag, -sd)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
-  scale_fill_manual(values = unname(cc_cols[c(1, 2, 3)])#, labels = c("Yes" = "Charter", "No" = "Traditional")
+  scale_fill_manual(values = unname(cc_cols[c(1, 4, 3)])#, labels = c("Yes" = "Charter", "No" = "Traditional")
                     ) +
   scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1), expand = expand_scale(mult = c(0, 0.1))) +
-  geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
-  labs(title = "Tags with largest std deviation between locales\n(highest 15% std deviations)",
+  #geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
+  labs(title = "Tags with most variability by locale",
        x = "Tag", 
        y = "Percent of schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank())
-ggsave("graphs/locale_largest_sd_tags.png", width = fig_width)
+ggsave("graphs/Blog 2_locale_high_variability.png", width = fig_width + 2, height = fig_height)
 
 locale_dat %>%
   arrange(sd) %>%
@@ -231,14 +231,15 @@ locale_dat %>%
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1,2, 3)])) +
   scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
-  geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
-  labs(title = "Tags with smallest std deviation\n(lowest 15% std deviations)",
+#  geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
+  labs(title = "Tags with least variability by locale",
        x = "Tag", 
        y = "Percent of schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
-        panel.grid.major.x = element_blank()) 
-ggsave("graphs/locale_smallest_sd_tags.png")
+  theme(axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1),
+        panel.grid.major.x = element_blank(),
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 18, unit = "pt")) 
+ggsave("graphs/Blog 2_locale_no_diff.png", width = fig_width + 2, height = fig_height)
 
 
 ## Urban vs Suburban  ####
@@ -274,23 +275,34 @@ ggsave("graphs/urban_suburban_diff_hist.png", width = fig_width)
 
 
 
-suburb_dat %>%
+p_urb = suburb_dat %>%
   filter(diff >= quantile(diff, 0.85)) %>%
   mutate(tag = fct_reorder(tag, -diff)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)])) +
   scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
-  geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
-  labs(title = "Tags more common in urban than\nsuburban schools (top 15%)",
+  labs(title = "Tags more common in urban than\nsuburban schools",
        x = "Tag", 
        y = "Percent of urban/suburban schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
-        panel.grid.major.x = element_blank())
-ggsave("graphs/urban_suburban_largest_diff_tags.png", width = fig_width)
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        panel.grid.major.x = element_blank(),
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 22, unit = "pt"))
 
-suburb_dat %>%
+ggsave("graphs/Blog 2b_Urban.png", width = fig_width, height = fig_height)
+ggsave(plot = p_urb + geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20"),
+       filename = "graphs/Blog 2b_Urban_no pct.png", width = fig_width, height = fig_height)
+
+
+dems %>% group_by(locale) %>%
+  summarize_at(vars(LEP_percent, non_white_percent, FRPL_percent, IDEA_percent), mean, na.rm = TRUE)
+
+dems %>% group_by(locale) %>%
+  summarize_at(vars(LEP_percent, non_white_percent, FRPL_percent, IDEA_percent), ~weighted.mean(., w = CCD_student_count, na.rm = TRUE))
+
+
+p_suburb = suburb_dat %>%
   arrange(diff) %>%
   filter(diff <= quantile(diff, 0.15)) %>%
   mutate(tag = fct_reorder(tag, diff)) %>%
@@ -298,14 +310,43 @@ suburb_dat %>%
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)])) +
   scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
-  geom_text(aes(label = scales::percent(-diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
-  labs(title = "Tags more common in suburban\n than urban school (top 15%)",
+  labs(title = "Tags more common in suburban\n than urban schools",
        x = "Tag", 
        y = "Percent of urban/suburban schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        panel.grid.major.x = element_blank(),
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 22, unit = "pt"))
+ggsave("graphs/Blog 2b_Subrban.png", width = fig_width, height = fig_height)
+ggsave(plot = p_suburb + geom_text(aes(label = scales::percent(-diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20"),
+       filename = "graphs/Blog 2b_Suburban_no pct.png", width = fig_width, height = fig_height)
+
+
+## Rural shines
+
+## TODO - group by tag, look at max differences between rural and average of others
+locale_dat %>%
+  group_by(tag) %>%
+  mutate(
+    rural_excess = p_school_with_tag[locale == "Rural"] - weighted.mean(p_school_with_tag[locale != "Rural"], w = n_schools_with_tag[locale != "Rural"])
+  ) %>%
+  ungroup() %>%
+  arrange(desc(rural_excess)) %>%
+  filter(rural_excess > 0) %>%
+  mutate(tag = fct_reorder(tag, rural_excess, .desc = TRUE)) %>%
+  arrange(desc(p_school_with_tag)) %>%
+  ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = unname(cc_cols[c(1,2, 3)])) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = expand_scale(mult = c(0, 0.1))) +
+  #geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
+  labs(title = "Tags where the percent of rural schools\nexceeds the non-rural average",
+      x = "Tag",
+      y = "Percent of schools with tag",
+      fill = "") +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank()) 
-ggsave("graphs/suburban_urban_largest_diff_tags.png", width = fig_width)
+ggsave("graphs/Blog 2_rural tags.png")
 
 # number of students served
 charter_dat %>%
@@ -322,7 +363,7 @@ charter_dat %>%
        x = "Tag", 
        y = "Number of students served by school type",
        fill = "") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0),
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank())  
 ggsave("graphs/charter_largest_diff_tags_n.png", width = fig_width)
 
@@ -471,7 +512,7 @@ logistic_one_coef %>%
   ggplot(aes(x = term, y = tag, fill = estimate)) +
     geom_tile() +
     facet_wrap(~clust_5, scales = "free") +
-  theme(axis.text.x = element_text(angle = -40, hjust = 0, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1), vjust = 0.5))
 
 
 ## Clusters ####
@@ -539,7 +580,7 @@ plot_cluster_cor = function(
          x = "Demographic/School Characteristic",
          fill = "Correlation") +
     coord_equal() +
-    theme_few(base_family = "GillSans-Light") +
+    theme_cc_few +
     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
           panel.grid = element_blank(),
           plot.title.position = "plot"
@@ -574,10 +615,14 @@ clust_5_blog1 =
   clust_5_cor_long %>%
   filter(Demographic %in% c("Elementary schools", "Middle schools", "High schools")) %>%
   plot_cluster_cor() +
-    labs(x = "", title = "Correlation between cluster and level") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
-        panel.grid.major = element_blank(),
-        axis.line = element_blank()) 
+    labs(x = "", title = "Correlation between category and school level") +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
+    panel.grid.major = element_blank(),
+    axis.line = element_blank(),
+    plot.title.position = "panel",
+    plot.title = element_text(hjust = 1)
+  ) 
 
 
 clust_5_blog1

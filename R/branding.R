@@ -3,9 +3,17 @@ library(ggplot2)
 library(ggthemes)
 
 # font Gill Sans Light
-theme_set(theme_gdocs(base_size = 16, base_family = "GillSans-Light"))
-fig_width = 9
+theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
+  theme(plot.title = element_text(family = "Freight"),
+        plot.background = element_blank())
 
+theme_cc_few = theme_few(base_family = "Lato Light") +
+  theme(plot.title = element_text(family = "Freight"),
+        axis.text = element_text(colour = "black"))
+
+theme_set(theme_cc)
+fig_width = 9
+fig_height = 7
 # create color palettes
 
 cc_cols = c(
