@@ -4,21 +4,22 @@ source(here("R/branding.R"))
 nom_conf[nom_conf$school_id == 130, "nom_approach"] = "T1_only"
 nom_conf = filter(nom_conf, !(school_id == 130 & tier == "T2"))
 
-## Basic hist ####
+gen_dir = "graphs/General Descriptives"
 
+## Basic hist ####
 
 cl_sch = conf_long %>% group_by(school_id) %>%
   summarize(n_tag = sum(value)) %>%
   left_join(select(dems, school_id, charter))
 
-ggplot(cl_sch, aes(x = n_tag)) +
+cl_sch_plot = ggplot(cl_sch, aes(x = n_tag)) +
     geom_histogram(binwidth = 1, fill = cc_cols["green"]) + 
-    labs(x = "Number of confirmed T2 tags per school", y = "Number of schools",
-         title = "Distribution of number of T2 tags per school") +
-    scale_y_continuous(breaks = seq(0, 8, by = 2)) +
+    labs(x = "Number of confirmed tags", y = "Number of schools",
+         title = "Distribution of number of confirmed tags per school") +
+    scale_y_continuous(breaks = seq(0, 8, by = 2), expand = expansion(c(0, 0.1))) +
     scale_x_continuous(breaks = function(x) {seq(0, max(x) + 9, by = 10)}) +
     theme(panel.grid.major.x = element_blank())
-ggsave(here("graphs/T2 tags per school.png"), width = fig_width)
+ggsave_cc(cl_sch_plot, file = "Distribution of tags by school", dir = gen_dir)
 
 
 ## Confirmation T1 ####
@@ -74,16 +75,29 @@ div_t1 = nom_conf %>% filter(nom_approach == "T1_only") %>%
   mutate(school_id = fct_reorder(as.character(school_id), -conf, sum),
          tag = fct_reorder(tag, conf, sum)) 
 
-gg_t1_nom_conf = 
-  ggplot(div_t1, aes(y = tag, x = factor(school_id), fill = decision)) +
-    geom_tile() +
-    theme(axis.text.x = element_blank(), legend.position = "bottom") +
-  guides(fill = guide_legend(label.position = "bottom")) +
-  labs(x = "School", title = "T1 Tag Confirmations", y = "", fill = "Tag Action") +
-  scale_fill_manual(values = decision_cols, na.value = "white", ) +
-  coord_fixed(ratio = 1.25)
+gg_t1_nom_conf =
+  ggplot(filter(div_t1,!is.na(decision)), aes(
+    y = tag,
+    x = factor(school_id),
+    fill = decision
+  )) +
+  geom_tile() +
+  theme(
+    axis.text.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid.major = element_blank()
+  ) +
+  guides(fill = guide_legend(label.position = "bottom", direction = "horizontal")) +
+  labs(x = "School",
+       title = "Tier 1 Tag Confirmations",
+       y = "",
+       fill = "Tag Action") +
+  scale_fill_manual(values = decision_cols, na.value = "white") +
+  scale_y_discrete(labels = label_tags) #+
+  #coord_fixed(ratio = 1.25)
 gg_t1_nom_conf
 
+ggsave_cc(gg_t1_nom_conf, file = "T1 Tag Confirmations", dir = gen_dir, fig_height = 5, fig_width = 12)
 
 
 ## Confirmation T2 ####
@@ -99,17 +113,19 @@ div_t2 =
          tag = fct_reorder(tag, -conf, sum)) 
 
 gg_t2_nom_conf = 
-    ggplot(div_t2, aes(x = tag, y = school_id, fill = decision)) +
+    ggplot(filter(div_t2, !is.na(decision)), aes(x = tag, y = school_id, fill = decision)) +
     geom_tile() +
   #  scale_fill_manual()
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = rel(0.6)),
-        axis.text.y = element_blank()) +
-  labs(y = "School", title = "T2 Tag Confirmations", x = "", fill = "Tag Action") +
+        axis.text.y = element_blank(),
+        panel.grid.major = element_blank()) +
+  labs(y = "School", title = "Tier 2 Tag Confirmations", x = "", fill = "Tag Action") +
+  scale_x_discrete(labels = label_tags) +
   scale_fill_manual(values = decision_cols, na.value = "white") #+
   #coord_fixed(ratio = 0.7)
 gg_t2_nom_conf
 
-ggsave(here("graphs/Confirmations for T2 Tags.png"), width = fig_width + 2)
+ggsave_cc(gg_t2_nom_conf, file = "T2 Tag Confirmations", dir = gen_dir, fig_height = 7, fig_width = 13)
 
 ## a few schools seem to have identical tagging data...
 dupes = div_t2 %>%
@@ -134,7 +150,7 @@ nom_conf_added = nom_conf %>%
   group_by(tier) %>%
   arrange(tier, desc(n_tag_added), desc(n_nom_confirmed)) 
 
-nom_conf %>% left_join(dems) %>%
+most_addded_plot = nom_conf %>% left_join(dems) %>%
   filter(decision == "added" & !is.na(charter)) %>%
   count(tag, charter) %>%
   group_by(tag) %>%
@@ -145,12 +161,18 @@ nom_conf %>% left_join(dems) %>%
   mutate(tag = fct_inorder(tag)) %>%
   ggplot(aes(x = tag, y = n, fill = charter)) +
   geom_col(position = "dodge") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        panel.grid.major.x = element_blank()) +
-  scale_fill_manual(values = unname(cc_cols[c("green", "light blue")])) +
+  scale_x_discrete(labels = label_tags) +
+  bar_y_scale_count +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = rel(0.8)),
+        panel.grid.major.x = element_blank(), 
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 50, unit = "pt"))  +
+  scale_fill_charter +
   labs(title = "Most added tags by school type",
-       x = "", y = "Number of schools adding this tag",
-       subtitle = "The data set includes 50 charter schools and 100 non-charter schools")
-ggsave(here("graphs/Tags added by charter.png"), width = fig_width)
-  
+       x = "", y = "Number of schools",
+       #subtitle = "The data set includes 50 charter schools and 100 non-charter schools",
+       fill = "")
+
+
+ggsave_cc(most_addded_plot, file = "Most Added Tags by Type", dir = gen_dir)
+
 
