@@ -43,6 +43,13 @@ dems = select(
     level_high = as.integer(str_detect(level, "High")),
     level_middle = as.integer(str_detect(level, "Middle")),
     level_elem = as.integer(str_detect(level, "Elementary")),
+    level_simple = factor(case_when(
+      str_detect(level, ",") ~ "Combined",
+      str_detect(level, "Not") ~ NA_character_,
+      TRUE ~ level
+    ),
+      levels = c("Elementary", "Middle", "High", "Combined")
+    ),
     locale_urban = as.integer(locale == "Urban"),
     locale_suburban = as.integer(locale == "Suburban"),
     locale_rural = as.integer(locale == "Rural"),
@@ -70,7 +77,7 @@ tags = bind_rows(t1, t2)
 conf = confirmed_raw %>%
   mutate_at(t_var, ~coalesce(., 0))
 
-conf_all_long = conf %>% select(t_var, school_id) %>%
+conf_all_long = conf %>% select(all_of(t_var), school_id) %>%
   pivot_longer(cols = -school_id, names_to = "tag") %>%
   left_join(select(tags, tag, tier), by = "tag")
 
@@ -78,7 +85,7 @@ conf_all_long = conf %>% select(t_var, school_id) %>%
 conf_long = conf %>% select(t2$tag, school_id) %>%
   pivot_longer(cols = t2$tag, names_to = "t2")
 
-conf_only = conf %>% select(t_var, school_id) %>%
+conf_only = conf %>% select(all_of(t_var), school_id) %>%
   pivot_longer(cols = t_var, names_to = "tag", values_to = "conf")
 
 conf_cor = conf %>%
@@ -103,7 +110,7 @@ stopifnot(all(t_var %in% names(nom_only)))
 
 nom_only_long = 
   nom_only %>%
-  select(school_id, nom_approach, t_var) %>%
+  select(school_id, nom_approach, all_of(t_var)) %>%
   pivot_longer(cols = t_var, names_to = "tag", values_to = "nom") %>% 
   mutate(
     tier = case_when(

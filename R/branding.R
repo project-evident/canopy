@@ -2,10 +2,14 @@ library(extrafont)
 library(ggplot2)
 library(ggthemes)
 
+source("R/label_tags.R")
+
 # font Gill Sans Light
+
 theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
   theme(plot.title = element_text(family = "Freight"),
-        plot.background = element_blank())
+        plot.background = element_blank(),
+        axis.text = element_text(colour = "black"))
 
 theme_cc_few = theme_few(base_family = "Lato Light") +
   theme(plot.title = element_text(family = "Freight"),
@@ -23,6 +27,24 @@ cc_cols = c(
   purple = "#9541F1",
   `dark blue` = "#1F3A56")
 cc_gray = "#EAEAEA"
+
+locale_cols = c(cc_cols["dark blue"], cc_cols["green"], cc_cols["light blue"])
+names(locale_cols) = c("Urban", "Suburban", "Rural")
+scale_fill_locale = scale_fill_manual(values = locale_cols)
+scale_color_locale = scale_color_manual(values = locale_cols)
+
+scale_fill_charter = scale_fill_manual(
+  values = unname(cc_cols[c("green", "light blue")]),
+  labels = c("Yes" = "Charter", "No" = "Traditional")
+)
+
+bar_y_scale_count = 
+  scale_y_continuous(labels = scales::comma_format(), expand = expansion(mult = c(0, 0.1))) 
+
+bar_y_scale_percent = 
+  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.1))) 
+
+bar_theme = theme(panel.grid.major.x = element_blank())
 
 cc_cols_accessor = function(...) {
   cols = c(...)
@@ -42,6 +64,50 @@ cc_pal <- function(palette = "main", reverse = FALSE, ...) {
   colorRampPalette(pal, ...)
 }
 
+
+### Demographic labesl ####
+
+dem_cols = c(
+  "black_count",
+  "black_percent",
+  "non_white_percent",
+  "FRPL_count",
+  "FRPL_percent",
+  "LEP_percent",
+  "IDEA_percent",
+  "charter",
+  "level_elem",
+  "level_middle", 
+  "level_high",
+  "level_simple",
+  "locale_urban",
+  "locale_suburban",
+  "locale_rural"
+)
+
+dem_labs = dem_cols
+names(dem_labs) = c(
+  "# Black students",
+  "% Black students",
+  "% students of color",
+  "# FRPL eligible",
+  "% FRPL eligible",
+  "% English Language Learner",
+  "% special education",
+  "Charter schools",
+  "Elementary schools",
+  "Middle schools",
+  "High schools",
+  "Level",
+  "Urban schools",
+  "Suburban schools",
+  "Rural schools"
+)
+
+dem_labs_rv = names(dem_labs)
+names(dem_labs_rv) = dem_labs
+
+scale_x_demo = scale_x_discrete(labels = dem_labs_rv)
 
 
 ## Reordering within facets
@@ -111,6 +177,14 @@ scale_y_reordered <- function(..., sep = "___") {
   ggplot2::scale_y_discrete(labels = function(x) gsub(reg, "", x), ...)
 }
 
+
+ggsave_cc = function(plot, file, dir, fig_width = 9, fig_height = 7) {
+  for (ext in c("png", "svg")) {
+    ggsave(filename = sprintf("%s/%s.%s", dir, file, ext),
+           plot = plot,
+           width = fig_width, height = fig_height)
+  }
+}
 
 
 
