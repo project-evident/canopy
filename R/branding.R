@@ -11,12 +11,12 @@ theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
         plot.background = element_blank(),
         axis.text = element_text(colour = "black"))
 
-theme_cc_few = theme_few(base_family = "Lato Light") +
+theme_cc_few = theme_few(base_size = 16, base_family = "Lato Light") +
   theme(plot.title = element_text(family = "Freight"),
         axis.text = element_text(colour = "black"))
 
 theme_set(theme_cc)
-fig_width = 9
+fig_width = 11
 fig_height = 7
 # create color palettes
 
@@ -34,17 +34,35 @@ scale_fill_locale = scale_fill_manual(values = locale_cols)
 scale_color_locale = scale_color_manual(values = locale_cols)
 
 scale_fill_charter = scale_fill_manual(
-  values = unname(cc_cols[c("green", "light blue")]),
+  values = unname(cc_cols[c("green", "dark blue")]),
   labels = c("Yes" = "Charter", "No" = "Traditional")
 )
 
 bar_y_scale_count = 
-  scale_y_continuous(labels = scales::comma_format(), expand = expansion(mult = c(0, 0.1))) 
+  scale_y_continuous(
+    labels = scales::comma_format(),
+    expand = expansion(mult = c(0, 0.1)),
+    breaks = scales::breaks_extended(Q = c(1, 5, 2, 4, 3))
+) 
 
 bar_y_scale_percent = 
-  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.1))) 
+  scale_y_continuous(
+    limits = c(0, 1),
+    labels = scales::percent_format(),
+    expand = expansion(mult = c(0, 0))
+  ) 
 
 bar_theme = theme(panel.grid.major.x = element_blank())
+
+
+scale_fill_cc_gradient = scale_fill_gradient2(
+      limits = c(-1, 1),
+      expand = c(0, 0), 
+      low = cc_cols["dark blue"], 
+      mid = "white",
+      high = cc_cols["green"],
+      midpoint = 0
+    )
 
 cc_cols_accessor = function(...) {
   cols = c(...)
@@ -64,13 +82,18 @@ cc_pal <- function(palette = "main", reverse = FALSE, ...) {
   colorRampPalette(pal, ...)
 }
 
+geom_col = function(...) ggplot2::geom_col(..., width = 0.6)
+
 
 ### Demographic labesl ####
 
 dem_cols = c(
+  "CCD_student_count",
+  "non_white_percent",
   "black_count",
   "black_percent",
-  "non_white_percent",
+  "hispanic_count",
+  "hispanic_percent",
   "FRPL_count",
   "FRPL_percent",
   "LEP_percent",
@@ -87,9 +110,12 @@ dem_cols = c(
 
 dem_labs = dem_cols
 names(dem_labs) = c(
+  "Number of students",
+  "% students of color",
   "# Black students",
   "% Black students",
-  "% students of color",
+  "# Hispanic students",
+  "% Hispanic student",
   "# FRPL eligible",
   "% FRPL eligible",
   "% English Language Learner",
@@ -104,10 +130,23 @@ names(dem_labs) = c(
   "Rural schools"
 )
 
+
 dem_labs_rv = names(dem_labs)
 names(dem_labs_rv) = dem_labs
 
+
+
+label_dems = function(dems) dem_labs_rv[dems]
+
 scale_x_demo = scale_x_discrete(labels = dem_labs_rv)
+
+clust_5_order = c(
+  "Blended Learning",
+  "Project-Based Learning",
+  "Competency-Based Education",
+  "Equity & Social-Emotional Learning",
+  "Flexible Pathways to College & Career"
+)
 
 
 ## Reordering within facets
@@ -178,12 +217,13 @@ scale_y_reordered <- function(..., sep = "___") {
 }
 
 
-ggsave_cc = function(plot, file, dir, fig_width = 9, fig_height = 7) {
+ggsave_cc = function(plot, file, dir, fig_width = 9, fig_height = 7, write_data = TRUE) {
   for (ext in c("png", "svg")) {
     ggsave(filename = sprintf("%s/%s.%s", dir, file, ext),
            plot = plot,
            width = fig_width, height = fig_height)
   }
+  if(write_data) write_csv(plot$data, path = sprintf("%s/%s_data.csv", dir, file))
 }
 
 

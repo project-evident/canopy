@@ -4,11 +4,11 @@ source(here("R/branding.R"))
 nom_conf[nom_conf$school_id == 130, "nom_approach"] = "T1_only"
 nom_conf = filter(nom_conf, !(school_id == 130 & tier == "T2"))
 
-gen_dir = "graphs/General Descriptives"
+gen_dir = "graphs/Tags"
 
 ## Basic hist ####
 
-cl_sch = conf_long %>% group_by(school_id) %>%
+cl_sch = conf_all_long %>% group_by(school_id) %>%
   summarize(n_tag = sum(value)) %>%
   left_join(select(dems, school_id, charter))
 
@@ -16,7 +16,7 @@ cl_sch_plot = ggplot(cl_sch, aes(x = n_tag)) +
     geom_histogram(binwidth = 1, fill = cc_cols["green"]) + 
     labs(x = "Number of confirmed tags", y = "Number of schools",
          title = "Distribution of number of confirmed tags per school") +
-    scale_y_continuous(breaks = seq(0, 8, by = 2), expand = expansion(c(0, 0.1))) +
+    scale_y_continuous(breaks = seq(0, 12, by = 2), expand = expansion(c(0, 0.1))) +
     scale_x_continuous(breaks = function(x) {seq(0, max(x) + 9, by = 10)}) +
     theme(panel.grid.major.x = element_blank())
 ggsave_cc(cl_sch_plot, file = "Distribution of tags by school", dir = gen_dir)
@@ -119,13 +119,13 @@ gg_t2_nom_conf =
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = rel(0.6)),
         axis.text.y = element_blank(),
         panel.grid.major = element_blank()) +
-  labs(y = "School", title = "Tier 2 Tag Confirmations", x = "", fill = "Tag Action") +
+  labs(y = "School", title = "Tag Confirmations", x = "", fill = "Tag Action") +
   scale_x_discrete(labels = label_tags) +
   scale_fill_manual(values = decision_cols, na.value = "white") #+
   #coord_fixed(ratio = 0.7)
 gg_t2_nom_conf
 
-ggsave_cc(gg_t2_nom_conf, file = "T2 Tag Confirmations", dir = gen_dir, fig_height = 7, fig_width = 13)
+ggsave_cc(gg_t2_nom_conf, file = "All Tag Confirmations", dir = gen_dir, fig_height = 7, fig_width = 13)
 
 ## a few schools seem to have identical tagging data...
 dupes = div_t2 %>%
@@ -150,20 +150,22 @@ nom_conf_added = nom_conf %>%
   group_by(tier) %>%
   arrange(tier, desc(n_tag_added), desc(n_nom_confirmed)) 
 
-most_addded_plot = nom_conf %>% left_join(dems) %>%
+most_added_dems = nom_conf %>% left_join(dems) %>%
   filter(decision == "added" & !is.na(charter)) %>%
   count(tag, charter) %>%
   group_by(tag) %>%
   mutate(n_tag_added = sum(n)) %>%
   ungroup() %>%
-  arrange(desc(n_tag_added)) %>%
+  arrange(desc(n_tag_added))
+
+most_addded_plot =  most_added_dems %>%
   slice(1:20) %>%
   mutate(tag = fct_inorder(tag)) %>%
   ggplot(aes(x = tag, y = n, fill = charter)) +
   geom_col(position = "dodge") + 
   scale_x_discrete(labels = label_tags) +
   bar_y_scale_count +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = rel(0.8)),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
         panel.grid.major.x = element_blank(), 
         plot.margin = margin(t = 8, r = 8, b = 8, l = 50, unit = "pt"))  +
   scale_fill_charter +
@@ -175,4 +177,10 @@ most_addded_plot = nom_conf %>% left_join(dems) %>%
 
 ggsave_cc(most_addded_plot, file = "Most Added Tags by Type", dir = gen_dir)
 
+nom_conf %>% left_join(select(dems, school_id, charter)) %>%
+  group_by(school_id, charter) %>%
+  summarize(n_added = sum(decision == "added", na.rm = TRUE)) %>%
+  filter(!is.na(charter)) %>%
+  group_by(charter) %>%
+  summarize(avg_added = quantile(n_added, 0.95))
 

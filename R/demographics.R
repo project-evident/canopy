@@ -30,48 +30,11 @@ source(here("R/branding.R"))
 tagdem = conf_all_long %>%
   left_join(dems, by = "school_id")
 
-dem_cols = c(
-  "black_count",
-  "black_percent",
-  "non_white_percent",
-  "FRPL_count",
-  "FRPL_percent",
-  "LEP_percent",
-  "IDEA_percent",
-  "charter",
-  "level_elem",
-  "level_middle", 
-  "level_high",
-  "locale_urban",
-  "locale_suburban",
-  "locale_rural"
-)
-
-dem_labs = dem_cols
-names(dem_labs) = c(
-  "# Black students",
-  "% Black students",
-  "% students of color",
-  "# FRPL eligible",
-  "% FRPL eligible",
-  "% English Language Learner",
-  "% special education",
-  "Charter schools",
-  "Elementary schools",
-  "Middle schools",
-  "High schools",
-  "Urban schools",
-  "Suburban schools",
-  "Rural schools"
-)
-
-dem_labs_rv = names(dem_labs)
-names(dem_labs_rv) = dem_labs
 
 # with 145 / 156 schools being "regular school" instead of Alternative, Career and Tech, Private, will ignore the
 # school_type
 
-# 21 schools missing charter school status - worth filling in
+# 21 schools missing charter school status - worth filling in?
 
 
 ## For charter ####
@@ -154,7 +117,7 @@ charter_dat %>%
   ggplot(aes(x = tag, y = n_students_served, fill = charter)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)]), labels = c("Yes" = "Charter", "No" = "Traditional")) +
-  scale_y_continuous(labels = scales::comma_format(), expand = expand_scale(mult = c(0, 0.1))) +
+  bar_y_scale_count +
   #geom_text(aes(label = n_schools_with_tag, group = charter), y = 0, position = position_dodge(width = 1), vjust = 0) +
   geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Even when more charter schools have tags\ntraditional schools serve many more students",
@@ -171,6 +134,78 @@ dems %>%
   group_by(charter) %>%
   summarize(race_count_missing = sum(is.na(total_race_count)), CCD_count_missing = sum(is.na(CCD_student_count)))
 ## only a few schools missing
+
+## Charter Demographics
+dems %>% 
+  group_by(charter, level) %>%
+  filter(!is.na(CCD_student_count)) %>%
+  summarize(
+    total_students_served = sum(CCD_student_count, na.rm = TRUE),
+    mean_students_served = mean(CCD_student_count, na.rm = TRUE),
+    n_schools = n(),
+    n_school_non_missing = sum(!is.na(CCD_student_count)),
+    n_high = sum(str_detect(level, "High"))
+  ) %>%
+  ungroup() %>%
+  arrange(level, charter) %>%
+  group_by(level) %>% 
+  mutate(pct_served = total_students_served / sum(total_students_served))
+  
+# # A tibble: 4 x 6
+#   charter       total_students_served mean_students_serv~ n_schools n_school_non_missi~ pct_served
+#   <chr>                         <dbl>               <dbl>     <int>               <int>      <dbl>
+# 1 No                            61991                639.       100                  97     0.793 
+# 2 Not applicab~                  1576                788          2                   2     0.0202
+# 3 Yes                           14619                340.        50                  43     0.187 
+# 4 NA                                0                NaN         21                   0     0 
+
+
+## Charter Demographics plot
+chart_dem_plot = 
+  dems %>% 
+  filter(charter %in% c("Yes", "No"), !is.na(level_simple), level_simple != "Combined") %>%
+  select(dem_cols) %>%
+  select(charter, contains("percent")) %>%
+  group_by(charter) %>%
+  summarize_if(is.numeric, mean, na.rm = TRUE) %>%
+  ungroup() %>%
+  mutate_at(vars(LEP_percent, IDEA_percent), ~ . / 100) %>%
+  select(charter, contains("percent")) %>%
+  reshape2::melt(id.cols = c("charter")) %>%
+  ggplot(aes(x = variable, y = value, fill = charter)) +
+  geom_col(position = "dodge", width = 0.6) +
+  scale_x_demo +
+  bar_y_scale_percent +
+  scale_fill_charter + 
+  theme(panel.grid.major.y = element_blank()) +
+  labs(x = "", y = "", fill = "School Type", title = "Demographics by school type") + 
+  coord_flip() 
+
+ggsave("graphs/Charter Demographics.png", chart_dem_plot, width = fig_width, height = fig_height)  
+
+
+chart_dem_facet = 
+  dems %>% 
+  filter(charter %in% c("Yes", "No"), !is.na(level_simple), level_simple != "Combined") %>%
+  select(dem_cols, level_simple) %>%
+  select(charter, level_simple, contains("percent")) %>%
+  group_by(charter, level_simple) %>%
+  summarize_if(is.numeric, mean, na.rm = TRUE) %>%
+  ungroup() %>%
+  mutate_at(vars(LEP_percent, IDEA_percent), ~ . / 100) %>%
+  select(charter, level_simple, contains("percent")) %>%
+  reshape2::melt(id.cols = c("charter", "level_simple")) %>%
+  ggplot(aes(x = variable, y = value, fill = charter)) +
+  geom_col(position = "dodge", width = 0.6) +
+  scale_x_demo +
+  bar_y_scale_percent +
+  scale_fill_charter + 
+  theme(panel.grid.major.y = element_blank()) +
+  labs(x = "", y = "", fill = "School Type", title = "Demographics by school type and level") + 
+  coord_flip() +
+  facet_wrap(~level_simple, ncol = 1) 
+
+ggsave("graphs/Charter Demographics by Level.png", chart_dem_facet, width = fig_width, height = fig_height * 1.25)  
 
 
 ## locale ####
@@ -211,17 +246,19 @@ locale_dat %>%
   mutate(tag = fct_reorder(tag, -sd)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
-  scale_fill_manual(values = unname(cc_cols[c(1, 4, 3)])#, labels = c("Yes" = "Charter", "No" = "Traditional")
-                    ) +
-  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1), expand = expand_scale(mult = c(0, 0.1))) +
+  scale_fill_locale +
+  scale_x_discrete(labels = label_tags) +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1), expand = expansion(mult = c(0, 0.1))) +
   #geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Tags with most variability by locale",
        x = "Tag", 
        y = "Percent of schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank())
 ggsave("graphs/Blog 2_locale_high_variability.png", width = fig_width + 2, height = fig_height)
+ggsave("graphs/Blog 2_locale_high_variability.svg", width = fig_width + 2, height = fig_height)
+
 
 locale_dat %>%
   arrange(sd) %>%
@@ -229,17 +266,19 @@ locale_dat %>%
   mutate(tag = fct_reorder(tag, sd)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
-  scale_fill_manual(values = unname(cc_cols[c(1,2, 3)])) +
-  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
-#  geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
+  scale_fill_locale + 
+  scale_x_discrete(labels = label_tags) +
+  scale_y_continuous(labels = scales::percent_format(),
+                     expand = expansion(mult = c(0, 0.1))) +
   labs(title = "Tags with least variability by locale",
        x = "Tag", 
        y = "Percent of schools with tag",
        fill = "") +
-  theme(axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank(),
         plot.margin = margin(t = 8, r = 8, b = 8, l = 18, unit = "pt")) 
 ggsave("graphs/Blog 2_locale_no_diff.png", width = fig_width + 2, height = fig_height)
+ggsave("graphs/Blog 2_locale_no_diff.svg", width = fig_width + 2, height = fig_height)
 
 
 ## Urban vs Suburban  ####
@@ -261,7 +300,7 @@ suburb_dat %>%
   summarize(diff = mean(diff)) %>%
   ggplot(aes(x = diff)) +
   scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_y_continuous(expand = expand_scale(mult = c(0, 0.1))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   geom_histogram(fill = cc_cols["green"], binwidth = 0.01) +
   labs(title = "Distribution of differences in tags between\nurban and suburban schools",
        y = "Count of tags with each difference",
@@ -280,19 +319,24 @@ p_urb = suburb_dat %>%
   mutate(tag = fct_reorder(tag, -diff)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
-  scale_fill_manual(values = unname(cc_cols[c(1, 3)])) +
-  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
+  scale_fill_locale +
+  scale_x_discrete(labels = label_tags) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.1))) +
   labs(title = "Tags more common in urban than\nsuburban schools",
        x = "Tag", 
-       y = "Percent of urban/suburban schools with tag",
+       y = "Percent of urban/suburban\nschools with tag",
        fill = "") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank(),
-        plot.margin = margin(t = 8, r = 8, b = 8, l = 22, unit = "pt"))
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 56, unit = "pt"))
 
-ggsave("graphs/Blog 2b_Urban.png", width = fig_width, height = fig_height)
+ggsave("graphs/Blog 2b_Urban_no pct.png", plot = p_urb, width = fig_width, height = fig_height)
+ggsave("graphs/Blog 2b_Urban_no pct.svg", plot = p_urb, width = fig_width, height = fig_height)
 ggsave(plot = p_urb + geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20"),
-       filename = "graphs/Blog 2b_Urban_no pct.png", width = fig_width, height = fig_height)
+       filename = "graphs/Blog 2b_Urban_with pct.png", width = fig_width, height = fig_height)
+ggsave(plot = p_urb + geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20"),
+       filename = "graphs/Blog 2b_Urban_with pct.svg", width = fig_width, height = fig_height)
+
 
 
 dems %>% group_by(locale) %>%
@@ -308,23 +352,26 @@ p_suburb = suburb_dat %>%
   mutate(tag = fct_reorder(tag, diff)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
-  scale_fill_manual(values = unname(cc_cols[c(1, 3)])) +
-  scale_y_continuous(labels = scales::percent_format(), expand = expand_scale(mult = c(0, 0.1))) +
+  scale_fill_locale +
+  scale_x_discrete(labels = label_tags) +
+  scale_y_continuous(labels = scales::percent_format(), expand = expansion(mult = c(0, 0.1))) +
   labs(title = "Tags more common in suburban\n than urban schools",
        x = "Tag", 
-       y = "Percent of urban/suburban schools with tag",
+       y = "Percent of urban/suburban\nschools with tag",
        fill = "") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank(),
-        plot.margin = margin(t = 8, r = 8, b = 8, l = 22, unit = "pt"))
-ggsave("graphs/Blog 2b_Subrban.png", width = fig_width, height = fig_height)
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 32, unit = "pt"))
+ggsave("graphs/Blog 2b_Suburban_no pct.png", p_suburb, width = fig_width, height = fig_height)
+ggsave("graphs/Blog 2b_Suburban_no pct.svg", p_suburb, width = fig_width, height = fig_height)
 ggsave(plot = p_suburb + geom_text(aes(label = scales::percent(-diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20"),
-       filename = "graphs/Blog 2b_Suburban_no pct.png", width = fig_width, height = fig_height)
+       filename = "graphs/Blog 2b_Suburban_with pct.png", width = fig_width, height = fig_height)
+ggsave(plot = p_suburb + geom_text(aes(label = scales::percent(-diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20"),
+       filename = "graphs/Blog 2b_Suburban_with pct.svg", width = fig_width, height = fig_height)
 
 
 ## Rural shines
 
-## TODO - group by tag, look at max differences between rural and average of others
 locale_dat %>%
   group_by(tag) %>%
   mutate(
@@ -337,16 +384,20 @@ locale_dat %>%
   arrange(desc(p_school_with_tag)) %>%
   ggplot(aes(x = tag, y = p_school_with_tag, fill = locale)) +
   geom_col(position = "dodge") +
-  scale_fill_manual(values = unname(cc_cols[c(1,2, 3)])) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = expand_scale(mult = c(0, 0.1))) +
-  #geom_text(aes(label = round(sd, 2)), y = Inf, vjust = 1, color = "gray20") +
+  scale_fill_locale +
+  scale_x_discrete(labels = label_tags) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = expansion(mult = c(0, 0.1))) +
   labs(title = "Tags where the percent of rural schools\nexceeds the non-rural average",
       x = "Tag",
       y = "Percent of schools with tag",
       fill = "") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
-        panel.grid.major.x = element_blank()) 
-ggsave("graphs/Blog 2_rural tags.png")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        panel.grid.major.x = element_blank(),
+        plot.margin = margin(t = 8, r = 8, b = 8, l = 24, unit = "pt")) 
+ggsave("graphs/Blog 2_rural tags.png", width = fig_width + 2, height = fig_height)
+ggsave("graphs/Blog 2_rural tags.svg", width = fig_width + 2, height = fig_height)
+
+
 
 # number of students served
 charter_dat %>%
@@ -356,17 +407,16 @@ charter_dat %>%
   ggplot(aes(x = tag, y = n_students_served, fill = charter)) +
   geom_col(position = "dodge") +
   scale_fill_manual(values = unname(cc_cols[c(1, 3)]), labels = c("Yes" = "Charter", "No" = "Traditional")) +
-  scale_y_continuous(labels = scales::comma_format(), expand = expand_scale(mult = c(0, 0.1))) +
-  #geom_text(aes(label = n_schools_with_tag, group = charter), y = 0, position = position_dodge(width = 1), vjust = 0) +
-  geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
+  scale_y_continuous(labels = scales::comma_format(), expand = expansion(mult = c(0, 0.1))) +
+  scale_x_discrete(labels = label_tags) +
+#  geom_text(aes(label = scales::percent(diff, accuracy = 1)), y = Inf, vjust = 1, color = "gray20") +
   labs(title = "Even when more charter schools have tags\ntraditional schools serve many more students",
        x = "Tag", 
-       y = "Number of students served by school type",
+       y = "Number of students served\nby school type",
        fill = "") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         panel.grid.major.x = element_blank())  
 ggsave("graphs/charter_largest_diff_tags_n.png", width = fig_width)
-
 
 
 
@@ -413,10 +463,10 @@ for (col in c("black_count", "black_percent", "non_white_percent", "FRPL_count",
 logistic_all = bind_rows(logistic_results)
 
 log_plot_dat = logistic_all %>%
-  group_by(term) %>%
   arrange(estimate) %>%
-  slice(1:5, (n()-4):n()) %>%
-  ungroup() %>%
+  slice(1:5, n() - (0:4)) %>%
+  select(tag) %>%
+  left_join(logistic_all) %>%
   mutate(tag = fct_reorder(tag, estimate, .fun = function(x) mean((x))),
          term = factor(term, levels = c("black_count", "black_percent", "non_white_percent",
                                         "FRPL_count", "FRPL_percent", "IDEA_percent", "LEP_percent"),
@@ -424,16 +474,20 @@ log_plot_dat = logistic_all %>%
                                   "FRPL (count)", "FRPL (percent)", "IDEA (percent)", "LEP (percent)"))
          )
 
-log_coef_plot = ggplot(log_plot_dat, aes(x = estimate, y = tag, color = term)) +
-  geom_point(size = 2) + 
-  labs(x = "Logistic regression coefficient",
+log_coef_plot = ggplot(log_plot_dat, aes(x = exp(estimate), y = tag, color = term, shape = term)) +
+  geom_point(size = 4) + 
+  scale_x_continuous(trans = "log", breaks = c(.25, .5, 1, 2, 4), limits = c(0.24999, 4), expand = expansion(0, 0)) +
+  scale_y_discrete(labels = label_tags) +
+  scale_shape_manual(values = c(19, 15, 17, 18, 0, 2, 8)) +
+  labs(x = "Odds multiplier",
        y = "Tag", 
        color = "Demographic",
-       title = "Most (positive) and least (negative) relations\nbetween tags and continuous demograpics")
+       shape = "Demographic",
+       title = "Tags with the most extreme relations\nbetween tags and continuous demograpics") +
+  geom_vline(xintercept = 1, color = "black", size = 1)
 log_coef_plot
 
-
-ggsave("graphs/demog_continuous_all.png", width = fig_width + 3, height = 9)
+ggsave_cc(log_coef_plot, "Tag Demographics most extreme", dir = "graphs/Tags/", fig_width = fig_width + 2)
 
 
 log_coef_plot_facet = ggplot(
@@ -451,9 +505,24 @@ log_coef_plot_facet = ggplot(
 log_coef_plot_facet
 ggsave("graphs/demog_continuous_faceted.png", width = fig_width + 5, height = 9)
 
+# TODO this guy?
+log_plot_fdat = logistic_all %>%
+  group_by(term) %>%
+  arrange(estimate) %>%
+  slice(1:4, n() - (0:3)) %>%
+  #select(tag, term) %>%
+  #left_join(logistic_all) %>%
+  ungroup() %>%
+  mutate(tag = fct_reorder(tag, estimate, .fun = function(x) mean((x))),
+         term = factor(term, levels = c("black_count", "black_percent", "non_white_percent",
+                                        "FRPL_count", "FRPL_percent", "IDEA_percent", "LEP_percent"),
+                       labels = c("Black (count)", "Black (percent)", "Non-White (percent)",
+                                  "FRPL (count)", "FRPL (percent)", "IDEA (percent)", "LEP (percent)"))
+         ) %>%
+  mutate(nice_tag = label_tags(tag))
 
 log_coef_bar_facet = ggplot(
-  log_plot_dat, aes(y = estimate, x = reorder_within(tag, estimate, within = term, fun = mean),
+  log_plot_fdat, aes(y = exp(estimate), x = reorder_within(nice_tag, estimate, within = term, fun = mean),
                     fill = term)) +
   geom_col() + 
   labs(y = "Logistic regression coefficient",
@@ -461,6 +530,7 @@ log_coef_bar_facet = ggplot(
        fill = "Demographic",
        title = "Most (positive) and least (negative) relations\nbetween tags and continuous demograpics") +
   facet_wrap(~ term, scales = "free_y") +
+  scale_y_continuous(trans = "log", breaks = c(.25, .5, 1, 2, 4), limits = c(0.12999, 6), expand = expansion(0, 0)) +
   scale_x_reordered() + 
   coord_flip() +
   guides(fill = FALSE)
@@ -468,52 +538,102 @@ log_coef_bar_facet
 ggsave("graphs/demog_continuous_bar_faceted.png", width = fig_width + 5, height = 9)
 
 
-one_vars = c("CCD_student_count", "charter_fl", "black_percent", "hispanic_percent", "non_white_percent",
+one_vars = c("CCD_student_count", "charter", "black_percent", "hispanic_percent", 
              "locale_urban", "locale_rural", "locale_suburban", "FRPL_percent", "IDEA_percent", "LEP_percent", 
              "level_high", "level_middle", "level_elem")
+
 logistic_one_dat = 
   tagdem %>%
-  mutate(locale_urban = as.integer(locale == "Urban"),
-         locale_suburban = as.integer(locale == "Suburban"),
-         locale_rural = as.integer(locale == "Rural"),
-         charter_fl = as.integer(charter == "Yes")) %>%
+  mutate(charter = case_when(charter == "Yes" ~ 1L, charter == "No" ~ 0L, TRUE ~ NA_integer_)) %>%
   select(value, tag, one_of(one_vars)) %>%
   na.omit() %>%
   group_by(tag) %>%
-  mutate_at(vars(one_vars), scale)
+  # scaling non-binary predictors
+  mutate_at(vars(
+    c(
+      "CCD_student_count",
+      "black_percent",
+      "hispanic_percent",
+      "FRPL_percent",
+      "IDEA_percent",
+      "LEP_percent"
+    )
+  ), scale)
 
-x = filter(logistic_one_dat, tag == "equity")
-glm(value  ~ CCD_student_count + charter_fl + black_percent + hispanic_percent +
-      non_white_percent + locale_urban + locale_rural + locale_suburban +
-      FRPL_percent + IDEA_percent + LEP_percent + level_high + level_middle + level_elem + 0,
-    data = x, family = binomial)
 
+library(rstanarm)
 
-glmnet(x = as.matrix(x[, -(1:2)]), y = x$value, family = "binomial", alpha = 0.5, intercept = FALSE)
+one_form = as.formula(paste("value", "~", paste(one_vars, collapse = "+")))
+#plot(xm, "areas", prob = 0.9, prob_outer = 1)
 
+bayes_mods = list()
 
-logistic_one_coef = logistic_one_dat %>% 
-  group_map(
-    ~ broom::tidy(glm(
-      value  ~ CCD_student_count + charter_fl + black_percent + hispanic_percent +
-      non_white_percent + locale_urban + locale_rural + locale_suburban +
-      FRPL_percent + IDEA_percent + LEP_percent + level_high + level_middle + level_elem + 0,
-   data = .x, family = binomial(link = "logit"))) %>%
-      cbind(.y)
+for(this_tag in unique(tagdem$tag)) {
+  bayes_mods[[this_tag]] = stan_glm(
+    one_form,
+    data = filter(logistic_one_dat, tag == this_tag),
+    family = binomial(link = "logit"),
+    prior = student_t(
+      df = 7,
+      location = 0,
+      scale = 2.5
+    )
+  )
+  
+}
+
+bayes_tidy = lapply(bayes_mods, tidy) %>%
+  bind_rows(.id = "response") %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    term = str_replace(term, "charter_fl", "charter"), # Correcting typo without re-running models
+    nice_tag = label_tags(response),
+    nice_demog = factor(label_dems(term), levels = dem_labs_rv)
+  )
+
+## top 10 absolute effects per demo:
+
+bayes_facet_dat = bayes_tidy %>% group_by(nice_demog) %>%
+  arrange(desc(abs(estimate))) %>%
+  slice(1:10)
+
+bayes_facet = 
+  ggplot(bayes_facet_dat,
+    aes(y = exp(estimate),
+        x = reorder_within(nice_tag, estimate, within = nice_demog, fun = mean),
+    )) +
+  geom_col() + 
+  labs(y = "Odds multiplier",
+       x = "", 
+       #fill = "Demographic",
+       title = "Top 10 tags most/least related to each demographic") +
+  facet_wrap(~ nice_demog, scales = "free_y") +
+  scale_y_continuous(
+    trans = "log",
+    breaks = c(.125, .25, .5, 1, 2, 4, 8),
+    labels = c("1/8", "1/4", "1/2", "1", "2", "4", "8"),
+    expand = expansion(0, 0)
+  ) +
+  scale_x_reordered() + 
+  coord_flip() +
+  guides(fill = FALSE) +
+  theme(axis.text = element_text(size = 8), strip.text = element_text(size = rel(0.6)),
+        panel.grid.major.y = element_blank(),
+        axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0))
+
+bayes_facet
+ggsave_cc(bayes_facet, file = "Logistic  Tags small multiples", dir = "graphs/Tags/", fig_width = 13, write_data = FALSE)
+
+bayes_tidy %>% 
+  mutate(
+    odds_multiplier = exp(estimate),
+    om_l95 = exp(estimate - 1.96 * std.error),
+    om_u95 = exp(estimate + 1.96 * std.error),
+    om_l80 = exp(estimate - qnorm(0.9) * std.error),
+    om_u80 = exp(estimate + qnorm(0.9) * std.error),
   ) %>%
-  bind_rows
-
-logistic_one_coef %>% 
-  arrange(estimate) %>%
-  slice(1:20, (n() - 19):n())
-
-logistic_one_coef %>%
-  left_join(e56, by = "tag") %>%
-  ggplot(aes(x = term, y = tag, fill = estimate)) +
-    geom_tile() +
-    facet_wrap(~clust_5, scales = "free") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1, vjust = 1), vjust = 0.5))
-
+  select(-estimate, -std.error) %>%
+write_csv("graphs/Tags/logistic tags estimates.csv")
 
 ## Clusters ####
 e56 = read_tsv(here("reporting/clusters.tsv"))
