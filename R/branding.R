@@ -88,6 +88,7 @@ geom_col = function(...) ggplot2::geom_col(..., width = 0.6)
 ### Demographic labesl ####
 
 dem_cols = c(
+  "student_count",
   "CCD_student_count",
   "non_white_percent",
   "black_count",
@@ -110,6 +111,7 @@ dem_cols = c(
 
 dem_labs = dem_cols
 names(dem_labs) = c(
+  "Number of students",
   "Number of students",
   "% students of color",
   "# Black students",
@@ -137,8 +139,13 @@ names(dem_labs_rv) = dem_labs
 
 
 label_dems = function(dems) dem_labs_rv[dems]
-
 scale_x_demo = scale_x_discrete(labels = dem_labs_rv)
+
+
+scale_fill_level = function(...) {
+    scale_fill_manual(..., values = cc_cols[c("light blue", "green", "purple")] %>% set_names("elementary", "middle", "high"))
+}
+
 
 clust_5_order = c(
   "Blended Learning",
@@ -147,6 +154,12 @@ clust_5_order = c(
   "Equity & Social-Emotional Learning",
   "Flexible Pathways to College & Career"
 )
+
+
+cut_label = function(x) {
+  to_mod = str_detect(x, "[\\(\\)\\[\\]]")
+  
+}
 
 
 ## Reordering within facets
@@ -225,6 +238,5 @@ ggsave_cc = function(plot, file, dir, fig_width = 9, fig_height = 7, write_data 
   }
   if(write_data) write_csv(plot$data, path = sprintf("%s/%s_data.csv", dir, file))
 }
-
 
 
