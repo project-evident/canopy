@@ -95,6 +95,25 @@ venn_obj = VennDiagram::venn.diagram(
 ggsave_cc(venn_obj, dir= out_dir, file = "venn", write_data = FALSE, fig_width = 5, fig_height = 5)
 
 
+
+venn_pct_obj = VennDiagram::venn.diagram(
+  venn_dat %>% set_names(., nm = venn_labs[names(.)]),
+  filename = NULL,
+  col = venn_cols,
+  fill = alpha(venn_cols, 0.3),
+  print.mode = "percent",
+  sigdigs = 2,
+  main = "Modalities used by Canopy schools",
+  main.fontfamily = "Lato",
+  #sub.fontfamily = "Lato",
+  cat.fontfamily = "Lato",
+  fontfamily = "Lato",
+  height = 2100, width = 2100
+)
+
+### This is the way to save grid Venn objects!
+ggsave_cc(venn_pct_obj, dir= out_dir, file = "venn_percent", write_data = FALSE, fig_width = 5, fig_height = 5)
+
 ## Covid Modalities by demographics
 ## FRPL and possible also race/ethnicity and locale (urban/sub/rural), level (ES/MS/HS
 
@@ -125,7 +144,7 @@ lev_stagger = sch_cov %>% filter(tag %in% staggered_sched) %>%
   labs(
     y = "Number of schools",
     x = "",
-    title = "Number of Canopy schools staggering schedules",
+    title = "Number of Canopy schools with staggered schedules",
     fill = ""
   ) +
   scale_fill_level() +

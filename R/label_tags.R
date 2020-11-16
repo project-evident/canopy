@@ -9,9 +9,16 @@ tag_labels = full_join(tag_labels, tag_labels_2020) %>%
   arrange(tag, description) %>%
   filter(!duplicated(tag))
 
-label_tags = function(x) {
+label_tags = function(x, capitalize = "none") {
   if(any(!x %in% tag_labels$tag)) stop("Missing tag label")
-  tag_labels$label[match(x, tag_labels$tag)]
+  labels = tag_labels$label[match(x, tag_labels$tag)]
+  if(capitalize == "title") {
+    labels = str_to_title(labels)
+  }
+  if(capitalize == "first") {
+    labels = str_to_sentence(labels)
+  }
+  return(labels)
 }
 
 
