@@ -10,8 +10,9 @@ tag_labels = full_join(tag_labels, tag_labels_2020) %>%
   filter(!duplicated(tag))
 
 label_tags = function(x, capitalize = "none") {
-  if(any(!x %in% tag_labels$tag)) stop("Missing tag label")
+  if(any(!x %in% tag_labels$tag)) warning("Missing tag label")
   labels = tag_labels$label[match(x, tag_labels$tag)]
+  labels[is.na(labels)] = x[is.na(labels)]
   if(capitalize == "title") {
     labels = str_to_title(labels)
   }
