@@ -5,6 +5,7 @@ library(glue)
 
 source("R/label_tags.R")
 source("R/label_dems.R")
+source("R/label_percent_bins.R")
 
 
 # font Gill Sans Light
@@ -188,7 +189,7 @@ ggsave_cc = function(plot, file, dir, fig_width = 9, fig_height = 7, write_data 
            plot = plot,
            width = fig_width, height = fig_height)
   }
-  if(write_data) write_csv(plot$data, path = sprintf("%s/%s_data.csv", dir, file))
+  if(write_data) write_csv(plot$data, file = sprintf("%s/%s_data.csv", dir, file))
 }
 
 

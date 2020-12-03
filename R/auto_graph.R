@@ -3,18 +3,19 @@ data = left_join(sch, sch_demo, by = "school_id")
 #write_rds(data, "data/shiny_school_demo.rds")
 
 
-tag_by_demographic = function(tag, dem, n_bins = 5) {
+tag_by_demographic = function(tag, dem, n_bins = 5, data = logistic_data) {
 
   breaks = seq(0, 1, length.out = n_bins + 1)
   bin_labels = label_percent_bins(breaks)
   
   plot_data = data %>% 
     mutate(
-      bin = coalesce(cut(
+      bin = factor(coalesce(cut(
         .data[[dem]],
-        breaks = seq(0, 1, length.out = n_bins + 1)
+        breaks = seq(0, 1, length.out = n_bins + 1),
+        labels = bin_labels
       ),
-      "missing")
+      "missing"), levels = c(bin_labels, "missing"))
     ) %>%
     group_by(bin) %>%
     summarize(

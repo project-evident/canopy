@@ -5,6 +5,7 @@ library(tidyverse)
 library(forcats)
 
 source("R/branding.R")
+source("R/import_2020_data.R")
 out_dir = "reporting/2020/core/"
 
 tags = read_csv("data/Canopy Tags Public Access.csv")
@@ -99,6 +100,9 @@ ggplot(aes(y = condition, x = sch_order, fill = factor(rank))) +
   ) +
   theme(panel.grid.major = element_blank())
 
+## TODO 
+# table/heatmap rows - factors, cols - ranks - values: counts / percents
+
 
 ## 
 bin_rank_plot = all_ranks_long %>%
@@ -126,51 +130,189 @@ ggsave_cc(bin_rank_plot, file = "ranked percentages", dir = out_dir)
 
 source("R/import_2020_data.R")
 
-core_tags = tags %>% filter(Tier == "General Approach") %>%
+t1_tags = tags %>% filter(Tier == "General Approach") %>%
   select(`Tag name`, `Variable name`)
 
-## diagnosing duration issues on core tags:
+## Only "central" tags were prompted for duration
+# ## diagnosing duration issues on core tags:
+# 
+# core_missing_duration = sch_tags_long_all %>%
+#   filter(tag %in% t1_tags$`Variable name`) %>%
+#   group_by(tag) %>%
+#   count(val) %>%
+#   pivot_wider(id_cols = tag, names_from = val, values_from = n, values_fill = 0)
+# core_missing_duration
+# # # A tibble: 7 x 7
+# # # Groups:   tag [7]
+# #   tag                    `1` `1-2 years` `3-4 years` `5+ years` `Less than a year`  `NA`
+# #   <chr>                <int>       <int>       <int>      <int>              <int> <int>
+# # 1 anti_racist_action      74           4           3          6                  4    53
+# # 2 blended_learning        77           7          12         11                  5    32
+# # 3 competency_education    61           6          11         19                  2    45
+# # 4 design_equity           73           6          14          6                  3    42
+# # 5 expanded_success        74           3           3         10                  0    54
+# # 6 pbl                     44           8          15         41                  1    35
+# # 7 sel                     75           8          15         29                  3    14
+# 
+# # write_csv(core_missing_duration, paste0(out_dir, "core tags duration missingness.csv"))
+# 
+# 
+# all_missing_duration = sch_tags_long_all %>%
+#   #filter(tag %in% t1_tags$`Variable name`) %>%
+#   group_by(tag) %>%
+#   count(val) %>%
+#   pivot_wider(id_cols = tag, names_from = val, values_from = n, values_fill = 0)
+# #View(all_missing_duration)
+# #write_csv(all_missing_duration, paste0(out_dir, "all tags duration missingness.csv"))
 
-core_missing_duration = sch_tags_long_all %>%
-  filter(tag %in% core_tags$`Variable name`) %>%
+## Core Durations ####
+
+durations = durations %>% 
   group_by(tag) %>%
-  count(val) %>%
-  pivot_wider(id_cols = tag, names_from = val, values_from = n, values_fill = 0)
-core_missing_duration
-# # A tibble: 7 x 7
-# # Groups:   tag [7]
-#   tag                    `1` `1-2 years` `3-4 years` `5+ years` `Less than a year`  `NA`
-#   <chr>                <int>       <int>       <int>      <int>              <int> <int>
-# 1 anti_racist_action      74           4           3          6                  4    53
-# 2 blended_learning        77           7          12         11                  5    32
-# 3 competency_education    61           6          11         19                  2    45
-# 4 design_equity           73           6          14          6                  3    42
-# 5 expanded_success        74           3           3         10                  0    54
-# 6 pbl                     44           8          15         41                  1    35
-# 7 sel                     75           8          15         29                  3    14
-
-# write_csv(core_missing_duration, paste0(out_dir, "core tags duration missingness.csv"))
-
-
-all_missing_duration = sch_tags_long_all %>%
-  #filter(tag %in% core_tags$`Variable name`) %>%
-  group_by(tag) %>%
-  count(val) %>%
-  pivot_wider(id_cols = tag, names_from = val, values_from = n, values_fill = 0)
-#View(all_missing_duration)
-#write_csv(all_missing_duration, paste0(out_dir, "all tags duration missingness.csv"))
-
-
-core_durations = durations %>%
-  filter(tag %in% core_tags$`Variable name`) %>%
+  mutate(n_all_durations = sum(n)) %>%
   ungroup() %>%
+  mutate(tag_rank = dense_rank(-n_all_durations)) %>%
   mutate(
     tag_label = factor(label_tags(tag)),
-    tag_label = fct_reorder(tag_label, -n, mean)
+    tag_label = fct_reorder(tag_label, -n, sum),
+    tag_label_n = sprintf("%s\n(N = %d)", tag_label, n_all_durations),
+    tag_label_n = fct_reorder(tag_label_n, -n, sum)
   ) 
 
+top_dur = durations %>%
+  distinct(tag, n_all_durations) %>%
+  top_n(n = 10, wt = n_all_durations) %>%
+  left_join(durations)
+  
+top_dur %>%
+  ggplot(aes(x = duration, y = n)) +
+  geom_col(fill = cc_cols["green"]) +
+  facet_wrap(~tag_label_n, nrow = 2) +
+  bar_y_scale_count +
+  bar_theme +
+  labs(
+    y = "Number of schools",
+    x = "Time practice has been implemented",
+    title = "Time schools have been implementing core practices"
+  ) + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
+    strip.text = element_text(size = rel(0.8))
+  ) ->
+  top_dur_facet
+top_dur_facet
+ggsave_cc(top_dur_facet, file = "durations for core tags - small multiples", dir = out_dir, fig_width = 13)
 
-core_duration_plot = ggplot(core_durations, aes(x = duration, y = n)) +
+top_dur %>%
+  ggplot(aes(x = duration, y = n, fill = tag_label)) +
+  geom_col(position = "dodge", color = "gray20") +
+  #facet_wrap(~tag_label_n) +
+  bar_y_scale_count +
+  bar_theme +
+  labs(
+    y = "Number of schools",
+    x = "Time practice has been implemented",
+    title = "Time schools have been implementing core practices",
+    fill = "Core practice"
+  ) + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
+    legend.text = element_text(size = rel(0.8)),
+    legend.position = c(0.25, 0.7)
+  ) ->
+  top_dur_dodge
+ggsave_cc(top_dur_dodge, file = "durations for core tags - dodged bars", dir = out_dir)
+
+top_dur %>%
+  ggplot(aes(x = duration, y = n, color = tag_label, group = tag_label)) +
+  geom_line(size = 2) +
+  geom_point() + 
+  #facet_wrap(~tag_label_n) +
+  bar_y_scale_count +
+  bar_theme +
+  labs(
+    y = "Number of schools",
+    x = "Time practice has been implemented",
+    title = "Time schools have been implementing core practices"
+  ) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8))) ->
+  top_dur_line
+## terrible - don't save
+
+## alternate?
+top_dur %>%
+  ggplot(aes(x = tag_label, y = n, fill = duration)) +
+  geom_col() +
+  bar_y_scale_count +
+  coord_flip() +
+  facet_grid(cols = vars(duration)) +
+  scale_fill_manual(values = unname(cc_cols[1:4])) +
+  labs(
+    y = "Number of schools",
+    x = "",
+    fill = "History of implementation",
+    #x = "Time practice has been implemented",
+    title = "Time schools have been implementing core practices"
+  ) + 
+  theme(panel.grid.major.y = element_blank()) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8))) ->
+  top_dur_facet_alt
+top_dur_facet_alt
+ggsave_cc(top_dur_facet_alt, file = "durations for core tags - multiples by duration", dir = out_dir,
+          fig_width = 15, fig_height = 5)
+
+
+top_dur %>%
+  ggplot(aes(x = tag_label, y = n, fill = duration)) +
+  geom_col() +
+  bar_y_scale_count +
+  bar_theme + 
+  #coord_flip() +
+  #facet_grid(cols = vars(duration)) +
+  scale_fill_manual(values = unname(cc_cols[1:4])) +
+  labs(
+    y = "Number of schools",
+    x = "",
+    fill = "History of implementation",
+    #x = "Time practice has been implemented",
+    title = "Time schools have been implementing core practices"
+  ) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8))) ->
+  top_dur_stack
+top_dur_stack
+ggsave_cc(top_dur_stack, file = "durations for core tags - stacked", dir = out_dir)
+
+
+top_dur %>%
+  ggplot(aes(x = tag_label, y = n, fill = duration)) +
+  geom_col(position = "dodge") +
+  bar_y_scale_count +
+  bar_theme + 
+  #coord_flip() +
+  #facet_grid(cols = vars(duration)) +
+  scale_fill_manual(values = unname(cc_cols[1:4])) +
+  labs(
+    y = "Number of schools",
+    x = "",
+    fill = "History of implementation",
+    #x = "Time practice has been implemented",
+    title = "Time schools have been implementing core practices"
+  ) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8))) ->
+  top_dur_dodge_duration
+top_dur_dodge_duration
+ggsave_cc(top_dur_dodge_duration, file = "durations for core tags - dodged durations", dir = out_dir)
+
+
+## Tier 1 Durations ####
+
+t1_durations = durations %>%
+  filter(tag %in% t1_tags$`Variable name`) %>%
+  ungroup() %>%
+  CC
+
+
+t1_duration_plot = ggplot(t1_durations, aes(x = duration, y = n)) +
   geom_col(fill = cc_cols["green"]) +
   facet_wrap(~tag_label) +
   bar_y_scale_count +
@@ -178,16 +320,18 @@ core_duration_plot = ggplot(core_durations, aes(x = duration, y = n)) +
   labs(
     y = "Number of schools",
     x = "Time practice has been implemented",
-    title = "Time schools have been implementing core practices\nmost central to their school model"
+    title = "Time schools have been implementing Tier 1 practices\nmost central to their school model"
   ) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)))
 
-ggsave_cc(core_duration_plot, file = "core practices with implentation times", dir = out_dir)
+ggsave_cc(t1_duration_plot, file = "Tier 1 practices with implentation times", dir = out_dir)
 
+## TODO - find other ways to look at this
+## also - percent of schools by time (x% of schools selecting this tag as core have been doing it for this long)
 
-## Simple core counts
-core_counts = sch_tags_long_all %>%
-  filter(tag %in% core_tags$`Variable name`) %>%
+## Simple t1 counts
+t1_counts = sch_tags_long_all %>%
+  filter(tag %in% t1_tags$`Variable name`) %>%
   mutate(tagged = !is.na(val)) %>%
   filter(tagged) %>%
   group_by(tag) %>%
@@ -197,7 +341,7 @@ core_counts = sch_tags_long_all %>%
   )
 
 
-core_count_plot = ggplot(core_counts, aes(x = fct_reorder(tag, -p_schools), y = p_schools)) +
+t1_count_plot = ggplot(t1_counts, aes(x = fct_reorder(tag, -p_schools), y = p_schools)) +
   geom_col(fill = cc_cols[1]) +
   bar_y_scale_percent +
   bar_theme +
@@ -207,7 +351,7 @@ core_count_plot = ggplot(core_counts, aes(x = fct_reorder(tag, -p_schools), y = 
        title = "Percent of schools indicating each general practice"
        )
 
-ggsave_cc(core_count_plot, "core tags percents", dir = out_dir)
+ggsave_cc(t1_count_plot, "t1 tags percents", dir = out_dir)
   
 
 ## Tags most likely to be "central"
@@ -252,7 +396,47 @@ central_plot = central_tags %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)))
 
 ggsave_cc(central_plot, file = "tags most commonly central percent", dir = out_dir)
+
+## Chelsea question - are "sel" and "sel_integrated" co-occurring as core tags?
+sel_table_central = sch_tags_long_all %>%
+  group_by(tag) %>%
+  #filter(!is.na(val)) %>%
+  mutate(is_central = if_else(val == "1", "Not central", "Central")) %>%
+  filter(tag %in% c("sel", "sel_integrated")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_central) %>%
+  mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(sel, sel_integrated)
+write_csv(sel_table_central, paste0(out_dir,"sel vs sel integrated core.csv"))
+
   
+sel_table_tag = sch_tags_long_all %>%
+  group_by(tag) %>%
+  #filter(!is.na(val)) %>%
+  mutate(is_tagged = !is.na(val)) %>%
+  filter(tag %in% c("sel", "sel_integrated")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_tagged) %>%
+  #mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(sel, sel_integrated)
+write_csv(sel_table_tag, paste0(out_dir,"sel vs sel integrated tagging.csv"))
+
+all_sel_tags = sch_tags_long_all %>%
+  group_by(tag) %>%
+  mutate(is_tagged = !is.na(val)) %>%
+  filter(str_detect(tag, "sel")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_tagged) %>%
+  #mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(across(-school_id))
+
+
+all_sel_core = sch_tags_long_all %>%
+  group_by(tag) %>%
+  mutate(is_central = if_else(val == "1", "Not central", "Central")) %>%
+  filter(str_detect(tag, "sel")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_central) %>%
+  mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(across(-school_id))
+
+
 central_count_plot = central_tags %>%
   ungroup() %>%
   slice(1:20) %>%
@@ -271,8 +455,8 @@ central_count_plot = central_tags %>%
   labs(
     title = '10 Practices most likely indicated as\n"central" to a school\'s model',
     x = "",
-    y = 'Count of schools selecting this practice\nindicating is as "central to their model"',
-    fill = "Implemented practice\ncentral to school model"
+    y = 'Count of schools selecting this practice',
+    fill = "Central to school model"
   ) +
   bar_theme + 
   bar_y_scale_count +
@@ -322,7 +506,7 @@ logistic_data =
 
 scaled_cols = paste0(continuous_cols, "_scaled")
 features = c(scaled_cols, "elementary", "middle", "high", "charter_fl", "locale")
-responses = c(core_tags$`Variable name`, "cutting_edge", "systemic_inequities")
+responses = c(t1_tags$`Variable name`, "cutting_edge", "systemic_inequities")
 formulas = sprintf("%s ~ %s", responses, paste(features, collapse = " + "))
 
 library(rstanarm)
@@ -390,12 +574,12 @@ plot_bayes_coefs = function(bayes_tidy, title = "Coefficients") {
   bayes_facet
 }
 
-plot_bayes_coefs(bayes_tidy %>% filter(response %in% core_tags$`Variable name`),
+plot_bayes_coefs(bayes_tidy %>% filter(response %in% t1_tags$`Variable name`),
                  title = "Core tags by demographics") %>%
   ggsave_cc(file = "odds ratios core tags", dir = out_dir, write_data = FALSE)
 
 
-plot_bayes_coefs(bayes_tidy %>% filter(!response %in% core_tags$`Variable name`),
+plot_bayes_coefs(bayes_tidy %>% filter(!response %in% t1_tags$`Variable name`),
                  title = "Common drivers by demographics") %>%
   ggsave_cc(file = "odds ratios common drivers", dir = out_dir, write_data = FALSE)
 
@@ -434,6 +618,8 @@ write_csv(paste0(out_dir, "logistic core tags estimates.csv"))
 #     n_stu_with_tag = sum(student_count * synchronous_online)
 #   )
 
+
+## TODO interactive all-tag correlation for 2020 - just for Chelsea
 
 file.copy(from = list.files(path = out_dir, full.names = TRUE),
           to = "G:\\Shared drives\\Proj Evident - Clay Christensen Institute\\Fall 2020\\blog 3 - core",

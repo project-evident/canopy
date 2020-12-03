@@ -3,6 +3,6 @@
 .RData
 .Ruserdata
 ~$*.xls*
-.png
-.pdf
-.svg
+*.png
+*.pdf
+*.svg
