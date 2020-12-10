@@ -165,6 +165,131 @@ t1_tags = tags %>% filter(Tier == "General Approach") %>%
 # #View(all_missing_duration)
 # #write_csv(all_missing_duration, paste0(out_dir, "all tags duration missingness.csv"))
 
+
+## Tags most likely to be "central"
+
+central_tags = sch_tags_long_all %>%
+  group_by(tag) %>%
+  filter(!is.na(val)) %>%
+  mutate(is_central = if_else(val %in% "1", "Not central", "Central")) %>%
+  filter("Central" %in% is_central) %>%
+  count(is_central) %>%
+  mutate(
+    total_tagged = sum(n),
+    p_central = n[is_central == "Central"] / total_tagged
+  ) %>%
+  arrange(desc(p_central), desc(total_tagged), tag)
+
+central_plot = central_tags %>%
+  ungroup() %>%
+  filter(is_central == "Central") %>%
+  slice(1:10) %>%
+  mutate(
+    tag_label = label_tags(tag),
+    tag_label = factor(tag_label, levels = unique(tag_label)),
+    is_central = factor(is_central, levels = c("Not central", "Central"))
+  ) %>%
+  ggplot(aes(x = tag_label, y = p_central)) +
+  geom_bar(stat = "identity", width = 0.8, fill = cc_cols["purple"]) +
+  # scale_fill_manual(
+  #   values = c("gray80", unname(cc_cols[c("purple")])),
+  #   breaks = c("Not central", "Central")
+  # ) +
+  # guides(fill = guide_legend(reverse=TRUE)) +
+  labs(
+    title = 'Top 10 practices indicated as central to a school\'s model',
+    x = "",
+    y = 'Percent of schools selecting this practice\nindicating is as "central to their model"',
+    fill = "Implemented practice\ncentral to school model"
+  ) +
+  bar_y_scale_percent +
+  bar_theme + 
+  #scale_y_continuous(labels = scales::percent, expand = expansion(0, 0)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)))
+
+ggsave_cc(central_plot, file = "tags most commonly central percent", dir = out_dir)
+
+## Chelsea question - are "sel" and "sel_integrated" co-occurring as core tags?
+sel_table_central = sch_tags_long_all %>%
+  group_by(tag) %>%
+  #filter(!is.na(val)) %>%
+  mutate(is_central = if_else(val == "1", "Not central", "Central")) %>%
+  filter(tag %in% c("sel", "sel_integrated")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_central) %>%
+  mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(sel, sel_integrated)
+write_csv(sel_table_central, paste0(out_dir,"sel vs sel integrated core.csv"))
+
+  
+sel_table_tag = sch_tags_long_all %>%
+  group_by(tag) %>%
+  #filter(!is.na(val)) %>%
+  mutate(is_tagged = !is.na(val)) %>%
+  filter(tag %in% c("sel", "sel_integrated")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_tagged) %>%
+  #mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(sel, sel_integrated)
+write_csv(sel_table_tag, paste0(out_dir,"sel vs sel integrated tagging.csv"))
+
+all_sel_tags = sch_tags_long_all %>%
+  group_by(tag) %>%
+  mutate(is_tagged = !is.na(val)) %>%
+  filter(str_detect(tag, "sel")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_tagged) %>%
+  #mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(across(-school_id))
+
+
+all_sel_core = sch_tags_long_all %>%
+  group_by(tag) %>%
+  mutate(is_central = if_else(val == "1", "Not central", "Central")) %>%
+  filter(str_detect(tag, "sel")) %>%
+  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_central) %>%
+  mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
+  count(across(-school_id))
+
+
+central_count_plot = central_tags %>%
+  ungroup() %>%
+  slice(1:20) %>%
+  mutate(
+    tag_label = label_tags(tag),
+    tag_label = factor(tag_label, levels = unique(tag_label)),
+    is_central = factor(
+      is_central, 
+      levels = c("Not central", "Central"),
+      labels = c("Practice selected", "Practice indicated as central"))
+  ) %>%
+  ggplot(aes(x = tag_label, y = n, fill = is_central)) +
+  geom_bar(stat = "identity", width = 0.8, color = "gray40") +
+  scale_fill_manual(
+    values = c("gray80", unname(cc_cols[c("purple")])),
+    breaks = c("Practice selected", "Practice indicated as central")
+  ) +
+  #guides(fill = guide_legend(reverse=TRUE)) +
+  labs(
+    title = 'Top 10 practices indicated as central to school model',
+    x = "",
+    y = 'Number of schools',
+    fill = "Practice "
+  ) +
+  bar_theme + 
+    scale_y_continuous(
+    labels = scales::comma_format(),
+    expand = expansion(mult = c(0, 0.20)),
+    breaks = scales::breaks_extended(Q = c(1, 5, 2, 4, 3))
+)  +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
+    #legend.position = "top",
+    legend.title = element_blank(),
+    legend.position = c(0.79, 0.88)
+    #legend.box.background = element_rect(size = 0.8, color = "gray40")
+  )
+
+ggsave_cc(central_count_plot, file = "tags most commonly central count", dir = out_dir)
+
+
 ## Core Durations ####
 
 durations = durations %>% 
@@ -182,7 +307,8 @@ durations = durations %>%
 top_dur = durations %>%
   distinct(tag, n_all_durations) %>%
   top_n(n = 10, wt = n_all_durations) %>%
-  left_join(durations)
+  left_join(durations) %>%
+  mutate(tag_label = factor(tag_label, levels = levels(central_count_plot$data$tag_label)))
   
 top_dur %>%
   ggplot(aes(x = duration, y = n)) +
@@ -273,11 +399,15 @@ top_dur %>%
   labs(
     y = "Number of schools",
     x = "",
-    fill = "History of implementation",
+    fill = "Time implemented",
     #x = "Time practice has been implemented",
-    title = "Time schools have been implementing core practices"
+    title = "How long schools report implementing core practices"
   ) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8))) ->
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
+    legend.position = c(.84, .78),
+    plot.margin = margin(t = 8, r = 8, b = 8, l = 20, unit = "pt")
+  ) ->
   top_dur_stack
 top_dur_stack
 ggsave_cc(top_dur_stack, file = "durations for core tags - stacked", dir = out_dir)
@@ -354,115 +484,6 @@ t1_count_plot = ggplot(t1_counts, aes(x = fct_reorder(tag, -p_schools), y = p_sc
 ggsave_cc(t1_count_plot, "t1 tags percents", dir = out_dir)
   
 
-## Tags most likely to be "central"
-
-central_tags = sch_tags_long_all %>%
-  group_by(tag) %>%
-  filter(!is.na(val)) %>%
-  mutate(is_central = if_else(val %in% "1", "Not central", "Central")) %>%
-  filter("Central" %in% is_central) %>%
-  count(is_central) %>%
-  mutate(
-    total_tagged = sum(n),
-    p_central = n[is_central == "Central"] / total_tagged
-  ) %>%
-  arrange(desc(p_central), desc(total_tagged), tag)
-
-central_plot = central_tags %>%
-  ungroup() %>%
-  filter(is_central == "Central") %>%
-  slice(1:10) %>%
-  mutate(
-    tag_label = label_tags(tag),
-    tag_label = factor(tag_label, levels = unique(tag_label)),
-    is_central = factor(is_central, levels = c("Not central", "Central"))
-  ) %>%
-  ggplot(aes(x = tag_label, y = p_central)) +
-  geom_bar(stat = "identity", width = 0.8, fill = cc_cols["purple"]) +
-  # scale_fill_manual(
-  #   values = c("gray80", unname(cc_cols[c("purple")])),
-  #   breaks = c("Not central", "Central")
-  # ) +
-  # guides(fill = guide_legend(reverse=TRUE)) +
-  labs(
-    title = '10 Practices most likely indicated as\n"central" to a school\'s model',
-    x = "",
-    y = 'Percent of schools selecting this practice\nindicating is as "central to their model"',
-    fill = "Implemented practice\ncentral to school model"
-  ) +
-  bar_y_scale_percent +
-  bar_theme + 
-  #scale_y_continuous(labels = scales::percent, expand = expansion(0, 0)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)))
-
-ggsave_cc(central_plot, file = "tags most commonly central percent", dir = out_dir)
-
-## Chelsea question - are "sel" and "sel_integrated" co-occurring as core tags?
-sel_table_central = sch_tags_long_all %>%
-  group_by(tag) %>%
-  #filter(!is.na(val)) %>%
-  mutate(is_central = if_else(val == "1", "Not central", "Central")) %>%
-  filter(tag %in% c("sel", "sel_integrated")) %>%
-  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_central) %>%
-  mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
-  count(sel, sel_integrated)
-write_csv(sel_table_central, paste0(out_dir,"sel vs sel integrated core.csv"))
-
-  
-sel_table_tag = sch_tags_long_all %>%
-  group_by(tag) %>%
-  #filter(!is.na(val)) %>%
-  mutate(is_tagged = !is.na(val)) %>%
-  filter(tag %in% c("sel", "sel_integrated")) %>%
-  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_tagged) %>%
-  #mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
-  count(sel, sel_integrated)
-write_csv(sel_table_tag, paste0(out_dir,"sel vs sel integrated tagging.csv"))
-
-all_sel_tags = sch_tags_long_all %>%
-  group_by(tag) %>%
-  mutate(is_tagged = !is.na(val)) %>%
-  filter(str_detect(tag, "sel")) %>%
-  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_tagged) %>%
-  #mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
-  count(across(-school_id))
-
-
-all_sel_core = sch_tags_long_all %>%
-  group_by(tag) %>%
-  mutate(is_central = if_else(val == "1", "Not central", "Central")) %>%
-  filter(str_detect(tag, "sel")) %>%
-  pivot_wider(id_cols = school_id, names_from = tag, values_from = is_central) %>%
-  mutate(across(-school_id, ~coalesce(., "Not tagged"))) %>%
-  count(across(-school_id))
-
-
-central_count_plot = central_tags %>%
-  ungroup() %>%
-  slice(1:20) %>%
-  mutate(
-    tag_label = label_tags(tag),
-    tag_label = factor(tag_label, levels = unique(tag_label)),
-    is_central = factor(is_central, levels = c("Not central", "Central"))
-  ) %>%
-  ggplot(aes(x = tag_label, y = n, fill = is_central)) +
-  geom_bar(stat = "identity", width = 0.8, color = "gray40") +
-  scale_fill_manual(
-    values = c("gray80", unname(cc_cols[c("purple")])),
-    breaks = c("Not central", "Central")
-  ) +
-  guides(fill = guide_legend(reverse=TRUE)) +
-  labs(
-    title = '10 Practices most likely indicated as\n"central" to a school\'s model',
-    x = "",
-    y = 'Count of schools selecting this practice',
-    fill = "Central to school model"
-  ) +
-  bar_theme + 
-  bar_y_scale_count +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)))
-
-ggsave_cc(central_count_plot, file = "tags most commonly central count", dir = out_dir)
 
 
 
@@ -619,7 +640,7 @@ write_csv(paste0(out_dir, "logistic core tags estimates.csv"))
 #   )
 
 
-## TODO interactive all-tag correlation for 2020 - just for Chelsea
+## DONE interactive all-tag correlation for 2020 - just for Chelsea
 
 file.copy(from = list.files(path = out_dir, full.names = TRUE),
           to = "G:\\Shared drives\\Proj Evident - Clay Christensen Institute\\Fall 2020\\blog 3 - core",

@@ -5,4 +5,5 @@ sch_raw %>%
   geocode(
     paste(school_city, school_state, sep = ","), method = "census" ## need google for non-address locations
   )
-  
+
+
