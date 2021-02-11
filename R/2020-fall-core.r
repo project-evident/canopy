@@ -124,7 +124,6 @@ ggplot() +
 ggsave_cc(bin_rank_plot, file = "ranked percentages", dir = out_dir)
 
 
-
 ############################
 #### CORE TAGS ANALYSIS ####
 

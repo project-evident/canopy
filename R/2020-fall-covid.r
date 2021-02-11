@@ -50,10 +50,7 @@ sch_demo = sch_raw %>%
 ## Graph 1 - Breakdown of COVID modalities
 modalities = c("fully_remote", "fully_in_person", "hybrid")
 
-sch_cov %>%
-  filter(tag %in% modalities) %>%
-  group_by(school_id) %>%
-  summarize(remote_any = )
+
 
 wide_mode_dat = sch_cov %>%
   filter(tag %in% modalities) %>%
