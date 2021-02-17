@@ -43,7 +43,13 @@ scale_color_locale = scale_color_manual(values = locale_cols)
 
 scale_fill_charter = scale_fill_manual(
   values = unname(cc_cols[c("green", "dark blue")]),
-  labels = c("Yes" = "Charter", "No" = "Traditional")
+  labels = c("Yes" = "Charter", "No" = "Traditional"),
+  na.value = "gray50"
+)
+
+scale_fill_type = scale_fill_manual(
+  values = unname(cc_cols[c("green", "dark blue", "purple")]),
+  labels = c("Charter", "District", "Independent")
 )
 
 bar_y_scale_count = 
