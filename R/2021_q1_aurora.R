@@ -25,7 +25,7 @@ tag_vec = tags$tag
 
 out_folder = "reporting/2021Q1/aurora/"
 
-canopy = import_all()
+canopy = readRDS(most_recent_file("canopy_all", path = "data/"))
 
 canopy %>% filter(year == "2020") %>%
   select(school_id, any_of(tag_vec)) %>%
@@ -52,11 +52,11 @@ ggplot(canopy_central) +
   bar_y_scale_count +
   labs(
     x = "", y = "Number of schools in 2020 and 2021",
-    title = "How long school report implementing core practices",
-    fill = "Time implemented"
+    title = "How long Canopy schools report implementing core practices",
+    fill = "Time\nimplemented"
   ) +
   scale_fill_manual(values = unname(cc_cols[1:4])) +
-  #scale_x_discrete(labels = label_tags) + 
+  scale_x_discrete(labels = NULL) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
     legend.position = c(.84, .78),
@@ -64,7 +64,7 @@ ggplot(canopy_central) +
   ) -> durations_all
 
 library(plotly)
-durations_all_interactive = ggplotly(durations_all, dynamicTicks = TRUE)
+durations_all_interactive = ggplotly(durations_all)
 
 library(htmlwidgets)
 partial_bundle(durations_all_interactive) %>% 

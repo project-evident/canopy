@@ -4,6 +4,7 @@ library(googlesheets4)
 source("R/import_tags.r")
 source("R/import_all.r")
 source("R/branding.R")
+source("R/import_all.r")
 tags = import_tags()
 tag_vec = tags$tag
 
@@ -307,8 +308,8 @@ central_tags %>%
 
 
 ## All canopy
-source("R/import_all.r")
-canopy = import_all()
+canopy = readRDS(most_recent_file("canopy_all", path = "data/"))
+
 
 canopy %>% group_by(year) %>%
   count(type) %>% 

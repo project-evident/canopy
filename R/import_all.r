@@ -9,13 +9,39 @@ import_all = function(
   paths = c("data/The-Canopy-Dataset.xlsx"),
   path_tab = c("Confirmed Schools")
 ) {
-  gs_data = lapply(tabs, read_sheet, ss = sheet_id, col_types = "c")
-  names(gs_data) = str_extract(tabs, "[0-9]{4}")
+  gs_data = lapply(tabs, read_sheet, ss = sheet_id, col_types = "c", na = c("", "-"))
+  names(gs_data) = c("2020", "2021")
   
-  xl_data = mapply(read_xlsx, path = paths, sheet = path_tab, MoreArgs = list(col_types = "text"), SIMPLIFY = FALSE)
-  names(xl_data) = "2019"
+  xl_data = read_xlsx(path = paths, sheet = path_tab, col_types = "text", na = c("", "-"))
   
-  all_data = bind_rows(c(gs_data, xl_data), .id = "year") %>%
+  tag_renames = c(
+    ## new_name = old_name
+    "student_count" = "CCD_student_count",
+    "design_equity" = "equity",
+    "community_supports" = "community_support",
+    "assessments_sel" = "measures_sel",
+    "physical_well_being" = "physical_health",
+    "place_based" = "local_focus",
+    "assessments_deeper" = "measures_deeper",
+    "interoperability" = "integrated_data",
+    "extended_learning" = "outside_credit",
+    "assessments_career" = "measures_career"
+  )
+  
+  stopifnot(all(names(tag_renames) %in% c(tag_vec, "student_count")))
+  stopifnot(all(tag_renames %in% names(xl_data)))
+  
+  xl_data = rename(xl_data, tag_renames)
+  
+  ## additionally, portfolios_exhibitions = portfolios | exhibitions
+  xl_data$portfolios_exhibitions = case_when(
+    xl_data$portfolios == "1" | xl_data$exhibitions == "1" ~ "1",
+    TRUE ~ NA_character_
+  )
+  xl_data = select(xl_data, -portfolios, -exhibitions)
+  
+  
+  all_data = bind_rows(c(gs_data, "2019" = list(xl_data)), .id = "year") %>% 
     mutate(type = coalesce(
       type,
       case_when(
@@ -25,18 +51,27 @@ import_all = function(
         TRUE ~ NA_character_
       )
     )) %>%
-    mutate(across(matches("percent"), function(x) {
+    mutate(
+      across(matches("percent"), function(x) {
         x = as.numeric(sub("%", "", x,  fixed = TRUE))
         x = ifelse(x > 1, x / 100, x)
         return(x)
-      })) %>%
+      }),
+      across(matches("count"), as.numeric)  
+    ) %>%
     mutate(
       leader_tenure = factor(
         leader_tenure,
         levels = c("Less than a year", "1-3 years", "4-6 years", "7-9 years", "10 years or more")
       )
-    )
-  ## TODO - could use some type cleanup
+    ) 
+  ## TODO - could use some more type cleanup
   return(all_data)
 }
 
+# canopy = import_all()
+# saveRDS(canopy, file = sprintf("data/canopy_all_%s.rds", Sys.Date()))
+
+most_recent_file = function(x, ...) {
+  tail(list.files(pattern = x, ..., full.names = TRUE), 1)
+}
