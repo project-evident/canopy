@@ -65,6 +65,19 @@ ggplot(filter(logistic_data, year != "2019"), aes(x = ar_tag_count)) +
   ) -> ar_counts
 ggsave_cc(ar_counts, file = "distribution of ar tags", dir = out_folder)
 
+
+ggplot(filter(logistic_data, year != "2019"), aes(x = ar_tag_count)) +
+  geom_bar(fill = cc_cols[5]) +
+  bar_theme +
+  bar_y_scale_count +
+  facet_wrap(~locale)
+  labs(
+    x = "Number of practices relating to anti-racism",
+    y = "Count of Canopy schools (2020-2021)",
+    title = "Distribution of anti-racist practices"
+  ) ## TODO share
+
+
 #build_linear_model(logistic_data, responses = "ar_tag_count")
 logistic_data$year2019 = logistic_data$year == "2019"
 
@@ -144,7 +157,7 @@ library(sf)
 canopy_latest %>%
   filter(!is.na(lat) & !is.na(lon)) %>% 
   mutate(ar_tag_count_factor = factor(ar_tag_count)) %>%
-  st_as_sf(crs = "+proj=longlat +ellps=WGS84", coords = c("lon", "lat")) ->
+  st_as_sf(crs = "+proj=longlat +datum=WGS84", coords = c("lon", "lat")) ->
   canopy_sf
 
 library(tmap) 
@@ -157,3 +170,115 @@ tm_basemap(server = leaflet::providers$Stamen.TonerLite) +
   ) -> ar_map
 
 #htmlwidgets::saveWidget(ar_map, file = paste0(out_folder, "ar_map.html"), selfcontained = TRUE)
+
+
+library(leaflet)
+library(htmltools)
+pal <- colorNumeric(
+  palette = c(cc_cols["light blue"], cc_cols["dark blue"]),
+  domain = c(0, 6)
+  #domain = c("Few equity-focused practices", "Many equity-focused practices")
+)
+
+library(scales)
+canopy_sf = canopy_sf %>%
+  mutate(
+    across(matches("percent"), .fns = percent, accuracy = 1,
+           .names = "pct_{.col}")
+  )
+
+leaflet(canopy_sf) %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    radius = 6,
+    color = ~pal(ar_tag_count),
+    stroke = FALSE, 
+    #color = "gray80",
+    fillOpacity = 0.75,
+    popup = ~(
+      glue(
+        "{school_name}",
+        "# of equity-focused tags: {ar_tag_count}",
+        "Locale: {locale}",
+        "% Black: {pct_black_percent}",
+        "% Hispanic: {pct_hispanic_percent}",
+        .sep = "<br/>"
+      )
+    )
+  ) %>%
+  addLegend("bottomright", pal = pal, values = ~ar_tag_count,
+    title = "# of equity-focused</br>practices",
+    opacity = 0.8
+  ) -> ar_leaflet
+
+htmlwidgets::saveWidget(ar_leaflet, file = here::here(out_folder, "ar_leaflet_map.html"), selfcontained = TRUE)
+
+
+## designing for equity and culture of antiracist practice - logistic regression
+
+ar_log_mods = build_model(
+  logistic_data, responses = c("design_equity", "anti_racist_action")
+)
+
+plot_bayes_coefs(ar_log_mods) %>%
+  ggsave_cc(file = "logistic_model_comparison", dir = out_folder)
+
+plot_one_mod(
+  filter(ar_log_mods, response == "design_equity"), title = "Designing for Equity Odds Ratios"
+) %>%
+  ggsave_cc(file = "odds ratios design_equity", dir = out_folder)
+
+plot_one_mod(
+  filter(ar_log_mods, response == "anti_racist_action"), title = "Anti-Racist Action for Equity Odds Ratios"
+) %>%
+  ggsave_cc(file = "odds ratios anti_racist_action", dir = out_folder)
+
+
+canopy_latest %>%
+  filter(year != "2019") %>%
+  group_by(locale) %>%
+  summarize(avg_ar_practices = mean(ar_tag_count))
+
+# # A tibble: 4 x 2
+#   locale   avg_ar_practices
+#   <chr>               <dbl>
+# 1 Rural                2.02
+# 2 Suburban             2.69
+# 3 Urban                2.62
+# 4 NA                   2.47
+
+canopy_latest %>% filter(year >= "2020") %>%
+  select(school_id, any_of(tag_vec)) %>%
+  pivot_longer(
+    cols = any_of(tag_vec),
+    names_to = "tag",
+    values_to = "val"
+  ) %>%
+  filter(!is.na(val)) %>%
+  mutate(
+    is_central = if_else(val %in% "1", "Not central", "Central")
+  ) %>%
+  count(tag, is_central) %>%
+  group_by(tag) %>%
+  mutate(
+    percent_central = percent(1 - n[is_central == "Not central"] / sum(n), accuracy = 1)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    tag_label = fct_reorder(label_tags(tag), n, sum, .desc = TRUE)
+  ) %>%
+  ggplot(aes(x = tag_label, y = n, fill = is_central, text = percent_central)) +
+  geom_col() +
+  scale_x_discrete(labels = NULL) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = rel(0.8)),
+    legend.position = c(.84, .78),
+    plot.margin = margin(t = 8, r = 8, b = 8, l = 20, unit = "pt")
+  ) -> central_all
+
+library(plotly)
+central_all_interactive = ggplotly(central_all)
+
+library(htmlwidgets)
+partial_bundle(central_all_interactive) %>% 
+  saveWidget(file = here::here(out_folder, "central_tags_all_interactive.html"))
