@@ -31,7 +31,7 @@ import_all = function(
   stopifnot(all(names(tag_renames) %in% c(tag_vec, "student_count")))
   stopifnot(all(tag_renames %in% names(xl_data)))
   
-  xl_data = rename(xl_data, tag_renames)
+  xl_data = rename(xl_data, all_of(tag_renames))
   
   ## additionally, portfolios_exhibitions = portfolios | exhibitions
   xl_data$portfolios_exhibitions = case_when(
@@ -57,7 +57,7 @@ import_all = function(
         x = ifelse(x > 1, x / 100, x)
         return(x)
       }),
-      across(matches("count"), as.numeric)  
+      across(matches("count"), ~as.numeric(replace(., . == "", NA)))  
     ) %>%
     mutate(
       leader_tenure = factor(
