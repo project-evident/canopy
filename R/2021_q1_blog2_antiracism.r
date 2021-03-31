@@ -51,8 +51,6 @@ all(anti_racism_adjacent_tags %in% tag_vec)
 ##   across geography, demographics, charter/district
 ## racial demographics of schools implementing anti-racism (maybe separate post?)
 
-source("R/model_prep.r")
-
 logistic_data$ar_tag_count = rowSums(logistic_data[anti_racism_tags], na.rm = TRUE)
 canopy_latest$ar_tag_count = rowSums(!is.na(canopy_latest[anti_racism_tags]))
 canopy_latest$ar_adj_count = rowSums(!is.na(canopy_latest[anti_racism_adjacent_tags]))
@@ -87,12 +85,12 @@ ggplot(filter(canopy_latest, year != "2019"), aes(x = ar_tag_count, fill = local
   geom_bar() +#fill = cc_cols[5]) +
   bar_theme +
   bar_y_scale_count +
-  #scale_x_continuous(breaks = c(0, )) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9)) +
   scale_fill_manual(values = locale_cols, na.value = "gray80") +
   labs(
     x = "Number of practices relating to anti-racism",
     y = "Count of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist-adjacent practices"
+    title = "Distribution of anti-racist practices by locale"
   ) -> ar_counts_locale
 ggsave_cc(ar_counts_locale, file = "distribution of ar tags by locale", dir = out_folder)
 
@@ -126,14 +124,14 @@ ar_mod = stan_lm(
     student_count_scaled + elementary + middle + high + charter_fl + 
     locale + year2019,
   data = logistic_data,
-  prior = R2(location = 0.4)
+  prior = R2(location = 0.3)
 )
 
 ar_no_locale = stan_lm(
   ar_tag_count ~ black_percent_scaled + hispanic_percent_scaled + 
     student_count_scaled + elementary + middle + high + charter_fl + year2019,
   data = logistic_data,
-  prior = R2(location = 0.4)
+  prior = R2(location = 0.3)
 )
 
 
@@ -194,7 +192,7 @@ ar_locale_interaction = stan_lm(
   ar_tag_count ~ (black_percent_scaled + hispanic_percent_scaled) * locale + 
     student_count_scaled + elementary + middle + high + charter_fl + year2019,
   data = logistic_data,
-  prior = R2(location = 0.4)
+  prior = R2(location = 0.3)
 )
 
 ar_locale_interaction %>% coef %>% 
@@ -231,7 +229,54 @@ ggplot(
   ar_interact_plot
 ggsave_cc(ar_interact_plot, file = "antiracist coefficients with interaction", dir = out_folder)
 
+## creating prediction plot for interaction mode
+logistic_data$white_percent = 100 * logistic_data$white_percent
+ar_locale_interaction_nw = stan_lm(
+  ar_tag_count ~ white_percent * locale + 
+    student_count_scaled + elementary + middle + high + charter_fl + year2019,
+  data = logistic_data,
+  prior = R2(location = 0.3)
+)
+summary(ar_locale_interaction_nw, digits = 2)
 
+pred_data = expand.grid(
+  white_percent = c(.1, .9),
+  locale = unique(logistic_data$locale)
+) %>% na.omit %>%
+  mutate(
+    student_count_scaled = 0,
+    elementary = FALSE,
+    middle = FALSE,
+    high = FALSE,
+    charter_fl = 0,
+    year2019 = 0
+  )
+
+pred = posterior_predict(ar_locale_interaction_nw, newdata = pred_data, )
+apply(pred, 2, quantile, c(.1, .5, .9)) %>% t %>%
+  cbind(pred_data, .) -> pred_data
+
+ggplot(pred_data, aes(x = white_percent, y = `50%`, color = locale, fill = locale)) +
+  #geom_ribbon(aes(ymin = `10%`, ymax = `90%`), alpha = 0.2, color = NA) +
+  geom_line(size = 2) +
+  scale_fill_locale +
+  scale_color_locale +
+  scale_x_continuous(labels = scales::label_percent(), limits = c(0, 1), expand = c(0, 0)) +
+  scale_y_continuous(breaks = c(0, 2, 4, 6, 8), limits = c(0, 9), expand = c(0, 0)) + 
+  labs(
+    x = "Percent of student body that is white",
+    y = "Number of anti-racist practices",
+    title = "Modeled association of white %\non number of anti-racist practices"
+  ) -> ar_locale_slopes
+  
+ggsave_cc(plot = ar_locale_slopes, file = "locale slopes", dir = out_folder)
+ggsave_cc(
+  plot = ar_locale_slopes + 
+    geom_point(data = logistic_data, aes(y = ar_tag_count), 
+               position = position_jitter(height = 0.2), alpha = 0.6),
+  file = "locale slopes with raw data", dir = out_folder
+)
+  
 
 ## Mapping
 loc = read_tsv("data/Canopy School Lat Long.tsv", col_names = c("lat", "lon", "school_name"), skip = 1)
