@@ -54,7 +54,7 @@ scale_fill_type = scale_fill_manual(
 
 bar_y_scale_count = 
   scale_y_continuous(
-    labels = scales::comma_format(),
+    labels = scales::comma_format(accuracy = 1),
     expand = expansion(mult = c(0, 0.1)),
     breaks = scales::breaks_extended(Q = c(1, 5, 2, 4, 3))
 ) 
@@ -62,7 +62,7 @@ bar_y_scale_count =
 bar_y_scale_percent = 
   scale_y_continuous(
     limits = c(0, 1),
-    labels = scales::percent_format(),
+    labels = scales::percent_format(accuracy = 1),
     expand = expansion(mult = c(0, 0))
   ) 
 

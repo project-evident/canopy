@@ -94,6 +94,48 @@ ggplot(filter(canopy_latest, year != "2019"), aes(x = ar_tag_count, fill = local
   ) -> ar_counts_locale
 ggsave_cc(ar_counts_locale, file = "distribution of ar tags by locale", dir = out_folder)
 
+filter(canopy_latest, year != "2019") %>%
+  count(locale, ar_tag_count) %>% 
+ggplot(aes(x = ar_tag_count, y = n, color = locale)) +
+  geom_line() +
+  geom_point(size = 3) + 
+  bar_theme +
+  bar_y_scale_count +
+  scale_x_continuous(breaks = c(0, 3, 6, 9)) +
+  scale_color_manual(values = locale_cols, na.value = "gray80") +
+  coord_cartesian(clip = "off") +
+  labs(
+    x = "Number of practices relating to anti-racism",
+    y = "Count of Canopy schools (2020-2021)",
+    title = "Distribution of anti-racist practices by locale"
+  ) -> ar_counts_locale_point
+ggsave_cc(ar_counts_locale_point, file = "distribution of ar tags by locale scatterplot", dir = out_folder)
+
+filter(canopy_latest, year != "2019") %>%
+  count(locale, ar_tag_count) %>% 
+  group_by(locale) %>%
+  mutate(prop = n / sum(n)) %>%
+ggplot(aes(x = ar_tag_count, y = prop, fill = locale)) +
+  geom_col() +
+  bar_theme +
+  scale_y_continuous(
+    limits = c(0, .25),
+    breaks = c(0, .1, .2),
+    labels = scales::percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0))
+  )  +
+  scale_x_continuous(breaks = c(0, 3, 6, 9)) +
+  scale_color_manual(values = locale_cols, na.value = "gray80") +
+  #coord_cartesian(clip = "off") +
+  labs(
+    x = "Number of practices relating to anti-racism",
+    y = "Percent of Canopy schools (2020-2021)",
+    title = "Distribution of anti-racist practices by locale"
+  ) +
+  facet_wrap(~locale)-> ar_counts_locale_prop
+ggsave_cc(ar_counts_locale_prop, file = "distribution of ar tags by locale proportion", dir = out_folder)
+
+
 
 ggplot(filter(logistic_data, year != "2019"), aes(x = ar_tag_count)) +
   geom_bar(fill = cc_cols[5]) +
@@ -210,7 +252,6 @@ ar_locale_interaction %>% coef %>%
       nice_demog = factor(coalesce(label_dems(term), term))
     ) -> ar_interact_coefs
 
-
 ggplot(
   ar_interact_coefs, 
   aes(x = estimate, y = fct_reorder(nice_demog, estimate))
@@ -226,8 +267,55 @@ ggplot(
         panel.grid.major.y = element_blank()#,
         #axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0)
       ) ->
-  ar_interact_plot
-ggsave_cc(ar_interact_plot, file = "antiracist coefficients with interaction", dir = out_folder)
+  ar_interaction_plot
+#ar_frpl_plot
+ggsave_cc(ar_interaction_plot, file = "antiracist coefficients with interaction",
+          dir = out_folder, fig_width = 11)
+
+
+
+## adding in FRPL precent
+ar_frpl = stan_lm(
+  ar_tag_count ~ (black_percent_scaled + hispanic_percent_scaled) * locale + FRPL_percent_scaled +
+    student_count_scaled + elementary + middle + high + charter_fl + year2019,
+  data = logistic_data,
+  prior = R2(location = 0.3)
+)
+
+ar_frpl %>% coef %>% 
+    as.data.frame() %>% 
+    set_names("estimate") %>%
+    rownames_to_column(var = "term") %>%
+    filter(!term %in% c("(Intercept)", "year2020", "year2021", "year2019")) %>%
+    dplyr::mutate(
+      #nice_tag = label_tags(response), 
+      term = str_replace(term, "_scaled|TRUE|_fl", ""),
+      term = if_else(term %in% c("middle", "high", "elementary"), paste0("level_", term), term),
+      term = str_replace(term, "elementary", "elem"),
+      term = str_replace(term, "locale", "locale_"),
+      term = if_else(str_detect(term, "locale"), tolower(term), term),
+      nice_demog = factor(coalesce(label_dems(term), term))
+    ) -> ar_frpl_coefs
+
+ggplot(
+  ar_frpl_coefs, 
+  aes(x = estimate, y = fct_reorder(nice_demog, estimate))
+) + 
+  geom_col(fill = cc_cols[3]) + 
+  labs(y = "",
+       x = "Average change in number of equity-focused practices", 
+       title = "Association between school characteristics\nand equity-focused practices",
+       subtitle = "(compared to urban schools with average student demographics)") +
+
+  guides(fill = FALSE) +
+  theme(#axis.text = element_text(size = 8), strip.text = element_text(size = rel(0.6)),
+        panel.grid.major.y = element_blank()#,
+        #axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0)
+      ) ->
+  ar_frpl_plot
+#ar_frpl_plot
+ggsave_cc(ar_frpl_plot, file = "antiracist coefficients with interaction and FRPL",
+          dir = out_folder, fig_width = 11)
 
 ## creating prediction plot for interaction mode
 logistic_data$white_percent = 100 * logistic_data$white_percent
