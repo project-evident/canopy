@@ -15,6 +15,7 @@ theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
     plot.title = element_text(family = "Freight"),
     plot.background = element_blank(),
     axis.text = element_text(colour = "black"),
+    axis.title = element_text(colour = "black"),
     panel.border = element_rect(colour = "gray40"),
     strip.text = element_text(size = rel(0.8))
   )

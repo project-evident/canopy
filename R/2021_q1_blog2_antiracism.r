@@ -11,9 +11,10 @@ source("R/import_all.r")
 source("R/branding.R")
 source("R/import_all.r")
 source("R/model_functions.r")
-source("R/model_prep.r") # creates logistic_data object
+
 tags = import_tags()
 tag_vec = tags$tag
+source("R/model_prep.r") # creates logistic_data object
 
 out_folder = "reporting/2021Q1/blog2-antiracism/"
 
@@ -61,9 +62,9 @@ ggplot(filter(logistic_data, year != "2019"), aes(x = ar_tag_count)) +
   bar_y_scale_count +
   scale_x_continuous(breaks = c(0, 3, 6, 9)) +
   labs(
-    x = "Number of practices relating to anti-racism",
+    x = "Number of equity-focused practices",
     y = "Count of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist practices"
+    title = "Distribution of equity-focused practices"
   ) -> ar_counts
 ggsave_cc(ar_counts, file = "distribution of ar tags", dir = out_folder)
 
@@ -74,9 +75,9 @@ ggplot(filter(canopy_latest, year != "2019"), aes(x = ar_adj_count)) +
   bar_y_scale_count +
   #scale_x_continuous(breaks = c(0, )) +
   labs(
-    x = "Number of practices relating to anti-racism",
+    x = "Number of equity-adjacent practices",
     y = "Count of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist-adjacent practices"
+    title = "Distribution of equity-adjacent practices"
   ) -> ar_adj_counts
 ggsave_cc(ar_adj_counts, file = "distribution of ar adjacent tags", dir = out_folder)
 
@@ -88,15 +89,15 @@ ggplot(filter(canopy_latest, year != "2019"), aes(x = ar_tag_count, fill = local
   scale_x_continuous(breaks = c(0, 3, 6, 9)) +
   scale_fill_manual(values = locale_cols, na.value = "gray80") +
   labs(
-    x = "Number of practices relating to anti-racism",
+    x = "Number of equity-focused practices",
     y = "Count of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist practices by locale"
+    title = "Distribution of equity-focused practices by locale"
   ) -> ar_counts_locale
 ggsave_cc(ar_counts_locale, file = "distribution of ar tags by locale", dir = out_folder)
 
 filter(canopy_latest, year != "2019") %>%
   count(locale, ar_tag_count) %>% 
-ggplot(aes(x = ar_tag_count, y = n, color = locale)) +
+  ggplot(aes(x = ar_tag_count, y = n, color = locale)) +
   geom_line() +
   geom_point(size = 3) + 
   bar_theme +
@@ -105,9 +106,9 @@ ggplot(aes(x = ar_tag_count, y = n, color = locale)) +
   scale_color_manual(values = locale_cols, na.value = "gray80") +
   coord_cartesian(clip = "off") +
   labs(
-    x = "Number of practices relating to anti-racism",
+    x = "Number of equity-focused practices",
     y = "Count of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist practices by locale"
+    title = "Distribution of equity-focused practices by locale"
   ) -> ar_counts_locale_point
 ggsave_cc(ar_counts_locale_point, file = "distribution of ar tags by locale scatterplot", dir = out_folder)
 
@@ -128,9 +129,9 @@ ggplot(aes(x = ar_tag_count, y = prop, fill = locale)) +
   scale_color_manual(values = locale_cols, na.value = "gray80") +
   #coord_cartesian(clip = "off") +
   labs(
-    x = "Number of practices relating to anti-racism",
+    x = "Number of equity-focused practices",
     y = "Percent of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist practices by locale"
+    title = "Distribution of equity-focused practices by locale"
   ) +
   facet_wrap(~locale)-> ar_counts_locale_prop
 ggsave_cc(ar_counts_locale_prop, file = "distribution of ar tags by locale proportion", dir = out_folder)
@@ -144,9 +145,9 @@ ggplot(filter(logistic_data, year != "2019"), aes(x = ar_tag_count)) +
   scale_x_continuous(breaks = c(0, 3, 6, 9)) +
   facet_wrap(~locale) +
   labs(
-    x = "Number of practices relating to anti-racism",
+    x = "Number of equity-focused practices",
     y = "Count of Canopy schools (2020-2021)",
-    title = "Distribution of anti-racist practices"
+    title = "Distribution of equity-focused practices"
   ) -> ar_counts_facet
 ggsave_cc(ar_counts_facet, file = "distribution of ar tags by locale", dir = out_folder)
 
@@ -353,8 +354,8 @@ ggplot(pred_data, aes(x = white_percent, y = `50%`, color = locale, fill = local
   scale_y_continuous(breaks = c(0, 2, 4, 6, 8), limits = c(0, 9), expand = c(0, 0)) + 
   labs(
     x = "Percent of student body that is white",
-    y = "Number of anti-racist practices",
-    title = "Modeled association of white %\non number of anti-racist practices"
+    y = "Number of equity-focused practices",
+    title = "Modeled association of white %\non number of equity-focused practices"
   ) -> ar_locale_slopes
   
 ggsave_cc(plot = ar_locale_slopes, file = "locale slopes", dir = out_folder)
