@@ -93,7 +93,7 @@ ggplot(filter(canopy_latest, year != "2019"), aes(x = ar_tag_count, fill = local
     y = "Count of Canopy schools (2020-2021)",
     title = "Distribution of equity-focused practices by locale"
   ) -> ar_counts_locale
-ggsave_cc(ar_counts_locale, file = "distribution of ar tags by locale", dir = out_folder)
+ggsave_cc(ar_counts_locale, file = "distribution of ar tags by locale stack", dir = out_folder)
 
 filter(canopy_latest, year != "2019") %>%
   count(locale, ar_tag_count) %>% 
@@ -109,7 +109,9 @@ filter(canopy_latest, year != "2019") %>%
     x = "Number of equity-focused practices",
     y = "Count of Canopy schools (2020-2021)",
     title = "Distribution of equity-focused practices by locale"
-  ) -> ar_counts_locale_point
+  ) +
+  theme(legend.position = c(.1, .85)) ->
+  ar_counts_locale_point
 ggsave_cc(ar_counts_locale_point, file = "distribution of ar tags by locale scatterplot", dir = out_folder)
 
 filter(canopy_latest, year != "2019") %>%
