@@ -42,6 +42,8 @@ names(locale_cols) = c("Urban", "Suburban", "Rural")
 scale_fill_locale = scale_fill_manual(values = locale_cols)
 scale_color_locale = scale_color_manual(values = locale_cols)
 
+hs_cols = cc_cols[c("purple", "green")] %>% setNames(c("High School", "Not High School"))
+
 scale_fill_charter = scale_fill_manual(
   values = unname(cc_cols[c("green", "dark blue")]),
   labels = c("Yes" = "Charter", "No" = "Traditional"),
@@ -62,6 +64,13 @@ bar_y_scale_count =
 
 bar_y_scale_percent = 
   scale_y_continuous(
+    limits = c(0, 1),
+    labels = scales::percent_format(accuracy = 1),
+    expand = expansion(mult = c(0, 0))
+  ) 
+
+bar_x_scale_percent = 
+  scale_x_continuous(
     limits = c(0, 1),
     labels = scales::percent_format(accuracy = 1),
     expand = expansion(mult = c(0, 0))

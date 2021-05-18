@@ -5,7 +5,7 @@ library(stringr)
 
 import_all = function(
   sheet_id = "10wBWoUNIIEGfJ91yUEHsuSp2FRd4F5o8krSsvB0NMvA",
-  tabs = c("Winter 2020-21 School Data", "Fall 2020 School Data"),
+  tabs = c("Fall 2020 School Data", "Winter 2020-21 School Data"),
   paths = c("data/The-Canopy-Dataset.xlsx"),
   path_tab = c("Confirmed Schools")
 ) {
