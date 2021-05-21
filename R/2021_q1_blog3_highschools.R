@@ -78,6 +78,23 @@ hs_efa_3 %>%
     model_parameters(sort = TRUE) %>%
     write_tsv(paste0(out_folder, "EFA Results All.txt"), na = "")
 
+
+hs_efa_5 = fa(hs_cor, nfactors = 5, rotate = "oblimin", fm = "minres")
+print(hs_efa_5, sort = T)
+print(hs_efa_5$loadings, cutoff = 0.25)
+
+hs_efa_5 %>%
+    model_parameters(sort = TRUE, threshold = "max") %>%
+    write_tsv(paste0(out_folder, "HS5 EFA Results Max.txt"), na = "")
+
+hs_efa_5 %>%
+    model_parameters(sort = TRUE, threshold = 0.28) %>%
+    write_tsv(paste0(out_folder, "HS5 EFA Results Threshold.txt"), na = "")
+
+hs_efa_5 %>%
+    model_parameters(sort = TRUE) %>%
+    write_tsv(paste0(out_folder, "HS5 EFA Results All.txt"), na = "")
+
 ## Basic HS stats
 
 ## tags at high schools vs non high schools
@@ -135,3 +152,8 @@ ggplot(hs_vs_top, aes(x = prop_tagged_level, y = tag)) +
   ) -> hs_tag_plot
 
 ggsave_cc(hs_tag_plot, file = "hs_exclusive_tags", dir = out_folder, fig_height = 9)
+
+## use 5 clusters
+### look at school characteristics by cluster alignment for each cluster
+### school size -> hypothesis, correlated with MR1
+### also look at locale, FRL, non-white %
