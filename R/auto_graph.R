@@ -1,6 +1,6 @@
-data = left_join(sch, sch_demo, by = "school_id")
-
-#write_rds(data, "data/shiny_school_demo.rds")
+## This was an experimental function to try to automate 
+## some common analyses. It works okay, but didn't prove
+## general enough to be truly useful.
 
 
 tag_by_demographic = function(tag, dem, n_bins = 5, data = logistic_data) {

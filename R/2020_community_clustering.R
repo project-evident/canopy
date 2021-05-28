@@ -9,6 +9,10 @@ library(tidyr)
 
 library(psych)
 library(cluster)
+## This was an experiment in visualizing tag connections
+## that never really proved useful.
+## Perhaps with more effort on formatting it could become more readable/usable
+
 library(igraph)
 library(parameters)
 

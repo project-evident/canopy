@@ -157,3 +157,8 @@ ggsave_cc(hs_tag_plot, file = "hs_exclusive_tags", dir = out_folder, fig_height 
 ### look at school characteristics by cluster alignment for each cluster
 ### school size -> hypothesis, correlated with MR1
 ### also look at locale, FRL, non-white %
+
+
+
+
+## Try clustering schools??
