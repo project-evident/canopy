@@ -48,5 +48,5 @@ names(dem_labs) = c(
 dem_labs_rv = names(dem_labs)
 names(dem_labs_rv) = dem_labs
 
-label_dems = function(dems) dem_labs_rv[dems]
+label_dems = function(dems) coalesce(dem_labs_rv[dems], dems)
 scale_x_demo = scale_x_discrete(labels = dem_labs_rv)

@@ -2,10 +2,10 @@ library(tidyverse)
 
 library(psych)
 library(cluster)
-library(igraph)
+#library(igraph)
 library(parameters)
 
-library(googlesheets4)
+
 
 source("R/import_tags.r")
 source("R/import_all.r")
@@ -25,14 +25,21 @@ canopy = readRDS(most_recent_file("canopy_all", path = "data/")) %>%
   
 
 ## hand-coded high school from Chelsea
-sheet_id = "1U5YQlRAJLpjBe5cUweS002qCDynFcgkPddFn8lCcu3E"
-tabs = c("Fall 2020 School Data", "Winter 2020-21 School Data")
-hs_extras = lapply(tabs, read_sheet, ss = sheet_id, col_types = "c", na = c("", "-"))
-names(hs_extras) = c("2020", "2021")
-hs_extras = bind_rows(hs_extras, .id = "year")
-hs_extras = select(hs_extras, school_id, `Add to HS pool?`)
-if(anyDuplicated(hs_extras$school_id)) stop("Deduplicate hs_extras!")
-## no duplicates in this now, but if made more general check for them!
+## run this for initial import, otherwise use the saved tsv file
+if(file.exists("data/high_school_extras.tsv")) {
+  hs_extras = read_tsv("data/high_school_extras.tsv")
+} else{
+  library(googlesheets4)
+  sheet_id = "1U5YQlRAJLpjBe5cUweS002qCDynFcgkPddFn8lCcu3E"
+  tabs = c("Fall 2020 School Data", "Winter 2020-21 School Data")
+  hs_extras = lapply(tabs, read_sheet, ss = sheet_id, col_types = "c", na = c("", "-"))
+  names(hs_extras) = c("2020", "2021")
+  hs_extras = bind_rows(hs_extras, .id = "year")
+  hs_extras = select(hs_extras, school_id, `Add to HS pool?`)
+  if(anyDuplicated(hs_extras$school_id)) stop("Deduplicate hs_extras!")
+  ## no duplicates in this now, but if made more general check for them!
+  write_tsv(hs_extras, "data/high_school_extras.tsv")
+}
 
 canopy = canopy %>% left_join(hs_extras, by = "school_id")
 
@@ -42,8 +49,6 @@ canopy = canopy %>%
 hs = canopy %>% 
   filter(is_hs)
   
-## for the correlation, let's keep only tags that occur at least 10% of the time
-
 hs_tags = tags %>% filter(coalesce(cluster, "General") != "COVID-19") %>% pull(tag)
 hs_tag_data = hs %>% select(any_of(hs_tags))
 (hs_tag_counts = colSums(hs_tag_data) %>% sort)
@@ -55,12 +60,12 @@ hs_tag_data = hs %>% select(any_of(hs_tags))
 ## was thinking of dropping any tags too infreuqent, but these actually look reasonable
 #hs_tag_data = hs_tag_data %>% select(!any_of(hs_tag_counts[hs_tag_counts < 18] %>% names))
 
-
 hs_cor = hs %>% select(any_of(hs_tags)) %>% cor
   
 fa_pa = fa.parallel(hs_cor, fm = "pa", fa = "fa", n.obs = nrow(hs_cor))
 fa_mr = fa.parallel(hs_cor, fm = "minres", fa = "fa", n.obs = nrow(hs_cor))
 ## 3 clusters
+### ... turned out to be useless. Moved up to 5
 
 hs_efa_3 = fa(hs_cor, nfactors = 3, rotate = "oblimin", fm = "minres")
 print(hs_efa_3, sort = T)
@@ -99,12 +104,7 @@ hs_efa_5 %>%
 
 ## tags at high schools vs non high schools
 canopy %>%
-  
-  ## trying this out - assume any anything not identified as high school isn't one
   mutate(is_hs = coalesce(is_hs, FALSE)) %>%
-  
-  ## filter(!is.na(is_hs)) %>%  ## this is the alternative - drop NAs
-  
   group_by(is_hs) %>% 
   summarize(across(hs_tags, mean)) %>%
   pivot_longer(-is_hs, names_to = "tag", values_to = "prop_tagged_level") %>%
@@ -116,7 +116,6 @@ canopy %>%
     tag = reorder(factor(tag), -hs_bump),
     hs_label = case_when(is_hs ~ "High School", !is_hs ~ "Not High School", TRUE ~ NA_character_)
   ) -> hs_vs
-
 
 hs_vs_top = hs_vs %>%
   slice(1:30)
@@ -158,7 +157,95 @@ ggsave_cc(hs_tag_plot, file = "hs_exclusive_tags", dir = out_folder, fig_height 
 ### school size -> hypothesis, correlated with MR1
 ### also look at locale, FRL, non-white %
 
+hs_efa_5 %>%
+  model_parameters(sort = TRUE, threshold = 0.28) %>%
+  select(-Complexity, -Uniqueness) %>%
+  #mutate(across(where(is.numeric), sign)) %>%
+  pivot_longer(starts_with("MR"), values_drop_na = TRUE) %>%
+  pivot_wider(names_from = "Variable", values_fill = 0) ->
+  efa_clusts
+
+clust_tags = names(efa_clusts)[-1]
+clust_names = efa_clusts$name
+for(i in 1:nrow(efa_clusts)) {
+  hs[[efa_clusts$name[i]]] = rowSums(hs[clust_tags] * efa_clusts[rep(i, nrow(hs)), -1])
+}
+
+## echoing blog 1, we'll look at row correlations with the clusters
+hs$non_white_percent = 1 - hs$white_percent
+
+hs = hs %>%
+  mutate(
+    Urban = locale == "Urban",
+    Rural = locale == "Rural",
+    Suburban = locale == "Suburban"
+  )
+
+clust_dems = c("student_count", "FRPL_percent", "non_white_percent", "Urban", "Suburban", "Rural")
+
+hs %>% select(all_of(clust_names) | all_of(clust_dems)) %>%
+  cor(use = "pairwise.complete.obs") -> hs_clust_cor
+
+hs_clust_cor = hs_clust_cor[clust_names, clust_dems]
+
+n_clust = 5
+hs_clust_cor_long = hs_clust_cor %>% 
+  as.data.frame %>%
+  mutate(cluster = row.names(.)) %>%
+  pivot_longer(-cluster)
+
+labeler_5clust = function(x) {
+  case_when(
+    x == "MR1" ~ "Projects/Real World",
+    x == "MR2" ~ "Equity & Social Justice",
+    x == "MR3" ~ "Instruction Techniques",
+    x == "MR4" ~ "College & Career Prep",
+    x == "MR5" ~ "Misc.",
+    TRUE ~ x
+  )
+}
+
+hs_clust_cor_long %>%
+  ggplot(aes(x = name, y = cluster, fill = value)) +
+  geom_tile() +
+  scale_x_discrete(expand = c(0, 0), limits = clust_dems, labels = label_dems) +
+  geom_text(aes(label = scales::label_number(accuracy = 0.01)(value)), color = "gray20", size = 3.5) +
+  scale_fill_cc_gradient +
+  scale_y_discrete(expand = c(0, 0), labels = labeler_5clust) +
+  coord_equal() +
+  labs(
+    title = sprintf(
+      "Correlation between HS practice clusters\n and school demographics",
+      n_clust
+    ),
+    fill = "Correlation",
+    x = "Demographic/School Characteristic",
+    y = ""
+  ) +
+  theme_cc_few +
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1
+    ),
+    panel.grid = element_blank()
+  ) -> hs_clust_plot
+
+ggsave_cc(hs_clust_plot, file = "hs_cluster_demographics", dir = out_folder)
 
 
 
-## Try clustering schools??
+hs %>% select(school_id, school_name, all_of(clust_names)) %>%
+  pivot_longer(all_of(clust_names), names_to = "Cluster", values_to = "Clust_Score") %>%
+  mutate(Cluster_Label = labeler_5clust(Cluster)) %>%
+  group_by(Cluster) %>%
+  arrange(desc(Clust_Score), school_id) %>%
+  #slice_head(n = 10) %>%
+  mutate(rank_within_cluster = dense_rank(desc(Clust_Score))) %>%
+  filter(rank_within_cluster <= 3) %>%
+  ungroup() %>%
+  select(Cluster, Cluster_Label, rank_within_cluster, school_name, school_id, Clust_Score) %>%
+  write_tsv(file = paste0(out_folder, "top schools for each cluster.tsv"))
+
+  # Try clustering schools??
