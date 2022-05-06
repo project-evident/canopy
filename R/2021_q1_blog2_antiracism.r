@@ -18,7 +18,7 @@ source("R/model_prep.r") # creates logistic_data object
 
 out_folder = "reporting/2021Q1/blog2-antiracism/"
 
-canopy = readRDS(most_recent_file("canopy_all", path = "data/"))
+canopy = readRDS(most_recent_file("canopy_all", path = "data/")) 
 
 
 anti_racism_tags = c(
@@ -53,8 +53,8 @@ all(anti_racism_adjacent_tags %in% tag_vec)
 ## racial demographics of schools implementing anti-racism (maybe separate post?)
 
 logistic_data$ar_tag_count = rowSums(logistic_data[anti_racism_tags], na.rm = TRUE)
-canopy_latest$ar_tag_count = rowSums(!is.na(canopy_latest[anti_racism_tags]))
-canopy_latest$ar_adj_count = rowSums(!is.na(canopy_latest[anti_racism_adjacent_tags]))
+canopy_latest$ar_tag_count = rowSums(canopy_latest[anti_racism_tags])
+canopy_latest$ar_adj_count = rowSums(canopy_latest[anti_racism_adjacent_tags])
   
 ggplot(filter(logistic_data, year != "2019"), aes(x = ar_tag_count)) +
   geom_bar(fill = cc_cols[5]) +
@@ -178,8 +178,6 @@ ar_no_locale = stan_lm(
   data = logistic_data,
   prior = R2(location = 0.3)
 )
-
-
 
 
 # ar_mod2 = stan_lm(

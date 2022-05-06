@@ -2,6 +2,12 @@
 library(googlesheets4)
 library(readxl)
 library(stringr)
+library(dplyr)
+library(readr)
+
+source("R/import_tags.r")
+tags = import_tags()
+tag_vec = tags$tag
 
 import_all = function(
   sheet_id = "10wBWoUNIIEGfJ91yUEHsuSp2FRd4F5o8krSsvB0NMvA",

@@ -34,10 +34,12 @@ sch_demo = sch_demo %>% mutate(
 
 sch_demo$charter_fl = as.integer(sch_demo$type == "Charter")
 
+canopy_latest = canopy_latest %>%
+  mutate(across(any_of(tag_vec), ~ !is.na(.)))
+
 logistic_data =
   canopy_latest %>% 
   select(school_id, any_of(tag_vec), year) %>% 
-  mutate(across(any_of(tag_vec), ~ !is.na(.))) %>%
   left_join(sch_demo, by = "school_id") %>%
   mutate(
     locale_urban = as.integer(locale == "Urban"),

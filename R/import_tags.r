@@ -1,3 +1,4 @@
+library(dplyr)
 import_tags = function(path = "data/Canopy Tags Public Access.csv") {
   read_csv(path) %>%
     rename(
@@ -5,7 +6,8 @@ import_tags = function(path = "data/Canopy Tags Public Access.csv") {
       desc = Description,
       tier = Tier,
       cluster = Cluster,
-      tag = `Variable name`
+      tag = `Variable name`#,
+      #show_col_types = FALSE
     )
 }
   

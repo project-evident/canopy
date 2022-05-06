@@ -1,16 +1,13 @@
 library(tidyverse)
-
 library(psych)
 library(cluster)
 #library(igraph)
 library(parameters)
 
-
-
 source("R/import_tags.r")
 source("R/import_all.r")
 source("R/branding.R")
-
+source("R/label_tags.R")
 
 tags = import_tags()
 tag_vec = tags$tag
@@ -41,7 +38,8 @@ if(file.exists("data/high_school_extras.tsv")) {
   write_tsv(hs_extras, "data/high_school_extras.tsv")
 }
 
-canopy = canopy %>% left_join(hs_extras, by = "school_id")
+canopy = canopy %>% left_join(
+  mutate(hs_extras, school_id = as.character(school_id)), by = "school_id")
 
 canopy = canopy %>% 
   mutate(is_hs = `12_grade` == "Yes" | `Add to HS pool?` == "Yes")

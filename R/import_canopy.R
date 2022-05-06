@@ -1,8 +1,6 @@
 library(readxl)
 library(here)
-library(dplyr)
-library(tidyr)
-library(stringr)
+library(tidyverse)
 
 confirmed_raw = read_xlsx(here("data", "The-Canopy-Dataset.xlsx"),
                        sheet = "Confirmed Schools"
@@ -86,7 +84,7 @@ conf_long = conf %>% select(t2$tag, school_id) %>%
   pivot_longer(cols = t2$tag, names_to = "t2")
 
 conf_only = conf %>% select(all_of(t_var), school_id) %>%
-  pivot_longer(cols = t_var, names_to = "tag", values_to = "conf")
+  pivot_longer(cols = all_of(t_var), names_to = "tag", values_to = "conf")
 
 conf_cor = conf %>%
   select(t2$tag) %>%
@@ -132,6 +130,8 @@ nom_conf = nom_only_long %>%
 
 
 
-save(t1, t2, t_var, conf, nom_no_conf, dict_raw, conf_long, conf_all_long, conf_cor, nom_conf, nom_only,
+save(t1, t2, t_var, conf, nom_no_conf,
+     dict_raw, conf_long, conf_all_long,
+     conf_cor, nom_conf, nom_only,
      all_wide, all_cor, tags, dems, 
      file = here("data", "cleaned.rdata"))

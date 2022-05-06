@@ -2,7 +2,8 @@ library(readr)
 
 tag_labels = read_tsv("data/tag_labels.tsv")
 
-tag_labels_2020 = read_csv("data/Canopy Tags Public Access.csv") %>%
+tag_labels_2020 = 
+  read_csv("data/Canopy Tags Public Access.csv", show_col_types = FALSE) %>%
   select(tag = `Variable name`, label = `Tag name`)
 
 tag_labels = full_join(tag_labels, tag_labels_2020) %>%
@@ -21,7 +22,6 @@ label_tags = function(x, capitalize = "none") {
   }
   return(labels)
 }
-
 
 scale_x_tag = function(...) scale_x_discrete(labels = label_tags)
 scale_y_tag = function(...) scale_y_discrete(labels = label_tags)

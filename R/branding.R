@@ -10,9 +10,23 @@ source("R/label_percent_bins.R")
 
 # font Gill Sans Light
 
-theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
+# theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
+#   theme(
+#     plot.title = element_text(family = "Freight"),
+#     plot.background = element_blank(),
+#     axis.text = element_text(colour = "black"),
+#     axis.title = element_text(colour = "black"),
+#     panel.border = element_rect(colour = "gray40"),
+#     strip.text = element_text(size = rel(0.8))
+#   )
+# 
+# theme_cc_few = theme_few(base_size = 16, base_family = "Lato Light") +
+#   theme(plot.title = element_text(family = "Freight"),
+#         axis.text = element_text(colour = "black"))
+
+theme_cc = theme_gdocs(base_size = 16) +
   theme(
-    plot.title = element_text(family = "Freight"),
+    #plot.title = element_text(family = "Freight"),
     plot.background = element_blank(),
     axis.text = element_text(colour = "black"),
     axis.title = element_text(colour = "black"),
@@ -20,9 +34,12 @@ theme_cc = theme_gdocs(base_size = 16, base_family = "Lato Light") +
     strip.text = element_text(size = rel(0.8))
   )
 
-theme_cc_few = theme_few(base_size = 16, base_family = "Lato Light") +
-  theme(plot.title = element_text(family = "Freight"),
-        axis.text = element_text(colour = "black"))
+theme_cc_few = theme_few(base_size = 16) +
+  theme(
+    #plot.title = element_text(family = "Freight"),
+    axis.text = element_text(colour = "black")
+  )
+
 
 theme_set(theme_cc)
 fig_width = 11
